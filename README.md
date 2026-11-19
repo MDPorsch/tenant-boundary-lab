@@ -66,6 +66,7 @@ test enforces that the oracle imports no enforcement code.
 | Schema, Alembic migration `0001`, deterministic seed | `src/tenantlab/db/` |
 | Contract and unit tests | `tests/unit/` |
 | Behavioural tests for TL-01..15, 18, 19 (M1 and M2 cases) | `tests/negative/test_m1_*.py`, `tests/negative/test_m2_*.py` |
+| Productization design (proposed, not implemented) | [docs/productization/boundarycheck-design.md](docs/productization/boundarycheck-design.md) |
 | Mutation checks, secret scan | `tools/mutation_m1.py`, `tools/mutation_m2.py`, `tools/secret_scan.py` |
 | Design | [docs/architecture.md](docs/architecture.md), [docs/threat-model.md](docs/threat-model.md), [docs/authorization-matrix.md](docs/authorization-matrix.md), [docs/api-contract.md](docs/api-contract.md), [docs/test-matrix.md](docs/test-matrix.md) |
 | Decisions and residual risk | [DECISIONS.md](DECISIONS.md), [LIMITATIONS.md](LIMITATIONS.md) |
