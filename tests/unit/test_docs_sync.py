@@ -85,7 +85,7 @@ def test_test_matrix_equals_the_catalog() -> None:
         assert row[2] == ", ".join(o.removesuffix(":2023") for o in case.owasp), case_id
         assert row[3] == ", ".join(case.milestones), case_id
         assert row[4] == case.state, case_id
-        if case.state == "red":
+        if case.state != "planned":
             assert all(f"`{m}`" in row[5] for m in case.test_modules), case_id
 
 

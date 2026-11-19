@@ -15,7 +15,7 @@ OWASP_API_2023: Final = frozenset({f"API{n}:2023" for n in range(1, 11)} | {"n/a
 MILESTONES: Final = frozenset({"M1", "M2", "M3", "M4", "M5", "M6"})
 _ID_RE: Final = re.compile(r"^TL-(0[1-9]|1[0-9]|20)$")
 
-CaseState = Literal["red", "planned"]
+CaseState = Literal["red", "green", "planned"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +73,7 @@ def parse_catalog(text: str) -> tuple[CatalogCase, ...]:
             raise OracleDataError(f"{case_id}: unknown OWASP id in {owasp!r}")
         if not milestones or not set(milestones) <= MILESTONES:
             raise OracleDataError(f"{case_id}: unknown milestone in {milestones!r}")
-        if state not in ("red", "planned"):
+        if state not in ("red", "green", "planned"):
             raise OracleDataError(f"{case_id}: bad state {state!r}")
         if not isinstance(expected, str) or len(expected) < 40:
             raise OracleDataError(f"{case_id}: 'expected' must be a concrete statement")

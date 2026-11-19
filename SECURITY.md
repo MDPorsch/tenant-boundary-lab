@@ -8,7 +8,7 @@ test runner detects the flaws.
 
 * Never deploy it, expose it to a network, or point it at real data.
 * It is designed to refuse to start outside `LAB_MODE=1`, outside loopback, or in a production
-  environment (spec TL-16). Today (M0) the vulnerable variant does not exist yet.
+  environment (spec TL-16). Today (M1) the vulnerable variant does not exist yet.
 * Never aim the runner at systems you do not own. The runner only talks to the in-process app.
 
 ## Supported versions

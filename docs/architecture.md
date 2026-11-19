@@ -1,7 +1,9 @@
 # Architecture
 
-Status: **M0 design.** Implemented today: the oracle data and loaders, the fixtures and loader, the
-error schema, the test harness and the tests. Everything else below is design for M1 onward.
+Status: **M1.** Implemented: the oracle data and loaders, fixtures, error schema and harness (M0);
+settings, token verifier, database layer (models, migration `0001`, seed), route registry, gate
+pipeline and the `/me` handler (M1). Not yet built: the other handlers (M2), the vulnerable variant
+(M3), the runner and oracle engine (M4), PostgreSQL concurrency and CI (M5).
 
 ## 1. Components
 
@@ -35,15 +37,19 @@ src/tenantlab/
   schemas/errors.py          ProblemDetail, ErrorCode              (M0)
   oracle/                    matrix.py, catalog.py, data/*.csv|toml (M0)  case_generator, rules (M4)
   lab/fixtures/              fixtures.toml, loader.py               (M0)
+  config.py  ids.py          Settings (public material), strict UUID parsing        (M1)
+  auth/                      tokens.py (EdDSA verifier), policy.py (own capability table) (M1)
+  db/                        engine.py, models.py, migrate.py, seed.py, migrations/ (M1)
+  api/                       app.py, routes.py, gates.py, middleware.py, problems.py,
+                             handlers.py                                              (M1)
   lab/patched/ lab/vulnerable/                                        (M2 / M3)
-  api/  auth/  db/  config.py                                         (M1 onward)
   runner/  cli.py                                                     (M4)
 ```
 
 | Package | May import | Must NOT import |
 |---|---|---|
 | `tenantlab.oracle` | stdlib, third-party, `tenantlab.schemas`, `tenantlab.lab.fixtures` | `api`, `auth`, `db`, `runner`, `lab.patched`, `lab.vulnerable` (enforced by test) |
-| `tenantlab.api` (default router) | `auth`, `db`, `schemas`, `lab.patched` | `lab.vulnerable` (verified in a clean subprocess in M3) |
+| `tenantlab.api`, `tenantlab.auth`, `tenantlab.db` | `schemas`, `lab.fixtures` (seed only), `lab.patched` (M2) | `oracle`, `runner`, `lab.vulnerable` (enforced by `test_app_independence.py`; subprocess check in M3) |
 | `tenantlab.lab.vulnerable` | `schemas`, `db` | anything from `oracle` |
 
 ## 3. Request pipeline
@@ -53,6 +59,11 @@ Defined once in `oracle/data/gates.csv` and summarised in `docs/api-contract.md`
 membership, tenant state, resource scope, role/capability, market permit, input validation, quota,
 state preconditions, action, audit. A request is denied at the first failing gate and every
 non-2xx response is a `ProblemDetail`.
+
+Implemented in M1: gates 0-6 and the query-name part of gate 8, for every route in
+`api/routes.py` (the registry is the only way a route is mounted, so a route cannot skip a gate).
+Gates 7 and 9-11 need a request body and arrive with the handlers in M2. The request body is never
+read by the gates.
 
 Cross-cutting rules: the server re-reads authority from the database on every request (no
 authorization cache); request bodies are parsed only after the capability gate; the server

@@ -4,6 +4,26 @@ All notable changes are recorded here. Pre-release; no version has been tagged.
 
 ## [Unreleased]
 
+### M1: identity and deny-by-default gates
+
+- Settings (public material only), strict UUID parsing, EdDSA-only token verifier (decision D-03
+  plus the strictness in D-26).
+- SQLAlchemy models and hand-written Alembic migration `0001`: CHECK, UNIQUE and foreign-key
+  constraints enforced (SQLite foreign keys switched on per connection); deterministic, atomic seed
+  that refuses a non-empty database.
+- Route registry and gate pipeline (gates 0-6 and the query part of gate 8): server-generated
+  request id, 413 body cap, 401 without a database row, disabled principal, active membership,
+  suspended tenant, market scope before role, role capability, strict path ids and query names.
+  Every denial is audited once (tenant NULL unless the actor is an active member); a database
+  failure fails closed with 503.
+- `GET /v1/tenants/{tenant_id}/me`; the nine other routes pass the gates and answer 501 until M2.
+- The 96 tests written red in M0 now pass unedited. 389 tests added (unit, database, middleware,
+  gate pipeline); total 635, all green, 99% line+branch coverage of `src`.
+- Case catalog: TL-01..05, TL-14 and TL-18 are `green`.
+- `tools/mutation_m1.py`: 69 injected security bugs, all caught by the suite.
+- Fixes found by the new tests: PyJWT subject/jti/iat errors were mapped through a wrong attribute
+  path; the M0 harness self-check leaked SQLite connections.
+
 ### M0: contracts (no application yet)
 
 - Independent oracle data: `capabilities.csv`, `gates.csv`, `field_policy.csv`, `case_catalog.toml`

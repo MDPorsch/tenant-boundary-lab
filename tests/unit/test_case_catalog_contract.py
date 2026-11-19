@@ -60,9 +60,11 @@ def test_cases_that_forbid_mutation_require_unchanged_state_evidence(
             assert any(w in text for w in ("unchanged", "identical", "atomic")), case.id
 
 
-def test_red_cases_have_real_test_functions_that_name_them(cases: dict[str, CatalogCase]) -> None:
+def test_cases_with_tests_have_real_test_functions_that_name_them(
+    cases: dict[str, CatalogCase],
+) -> None:
     for case in cases.values():
-        if case.state != "red":
+        if case.state == "planned":
             continue
         prefix = f"test_{case.id.lower().replace('-', '')}_"  # TL-01 -> test_tl01_
         found = False
@@ -77,6 +79,17 @@ def test_red_cases_have_real_test_functions_that_name_them(cases: dict[str, Cata
         assert found, f"{case.id}: no test function starting with {prefix!r}"
 
 
-def test_the_m1_red_set_is_exactly_the_m1_cases(cases: dict[str, CatalogCase]) -> None:
-    red = {cid for cid, c in cases.items() if c.state == "red"}
-    assert red == {cid for cid, m in FIRST_MILESTONE.items() if m == "M1"}
+# Milestones whose code has shipped. Update this ONE line when a milestone is completed; the
+# test below then forces the catalog, the docs and the case states to move with it.
+SHIPPED = {"M1"}
+
+
+def test_cases_of_shipped_milestones_are_green_and_later_ones_are_planned(
+    cases: dict[str, CatalogCase],
+) -> None:
+    for cid, case in cases.items():
+        expected = "green" if FIRST_MILESTONE[cid] in SHIPPED else "planned"
+        assert case.state == expected, (
+            f"{cid}: first milestone {FIRST_MILESTONE[cid]}, state {case.state!r}, "
+            f"expected {expected!r}"
+        )

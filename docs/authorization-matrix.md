@@ -85,7 +85,7 @@ Effective read floor on a surface = max(route floor, field floor).
 
 Market access: A = UK, B = US, C = UK.
 
-## 5. Owner approval checklist (please answer before M1 starts)
+## 5. Owner approval checklist (items 1-6 approved by the owner on 2026-11-19: "approve M0")
 
 1. Is the role/operation table in s1 correct, especially: editors may **create** projects; admins may
    read private contacts and the audit log but **not** change memberships?

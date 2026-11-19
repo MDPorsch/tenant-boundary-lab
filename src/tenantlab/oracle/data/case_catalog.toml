@@ -1,7 +1,9 @@
 # Case catalog: TL-01..TL-20 from specifications/01_tenant_boundary_lab.md s9.
 #
-# state = "red"     a failing test exists today and names this case (tests-first)
+# Lifecycle of a case:  planned -> red -> green
 # state = "planned" the test is written at the START of the listed milestone, before its code
+# state = "red"     a failing test exists and names this case (tests-first); its code is not built
+# state = "green"   the test exists, names this case and PASSES against the built code
 #
 # `milestones`: first entry = the milestone whose code must make the case pass.
 # OWASP IDs are API Security Top 10:2023. "n/a" = data-integrity/race, no OWASP API category.
@@ -19,7 +21,7 @@ id = "TL-01"
 title = "No, malformed or forged bearer"
 owasp = ["API2:2023"]
 milestones = ["M1"]
-state = "red"
+state = "green"
 mutation_allowed = false
 test_modules = ["tests/negative/test_m1_authentication.py"]
 expected = "401 auth.token_invalid as application/problem+json with WWW-Authenticate: Bearer; covers missing header, non-Bearer scheme, garbage, forged signature, alg=none, HS256 key-confusion, truncated signature, token in query string; authentication precedes body validation (malformed JSON body still 401); the WHOLE database (business tables AND audit_events) is unchanged: pre-authentication failures write structured logs only, never rows; token text absent from the body."
@@ -29,7 +31,7 @@ id = "TL-02"
 title = "Expired, not-yet-valid, wrong issuer/audience JWT"
 owasp = ["API2:2023"]
 milestones = ["M1"]
-state = "red"
+state = "green"
 mutation_allowed = false
 test_modules = ["tests/negative/test_m1_authentication.py"]
 expected = "Same evidence as TL-01 for: expired, nbf in the future, iat in the future, wrong iss, wrong aud, missing sub/jti/exp/iat/nbf, lifetime above 900s, sub not a UUID, sub a UUID of no principal (indistinguishable from an invalid token). The whole database is unchanged: pre-authentication failures write no rows."
@@ -39,7 +41,7 @@ id = "TL-03"
 title = "Disabled actor or revoked membership"
 owasp = ["API2:2023", "API1:2023"]
 milestones = ["M1"]
-state = "red"
+state = "green"
 mutation_allowed = false
 test_modules = ["tests/negative/test_m1_tenant_gates.py"]
 expected = "Disabled principal (erin): 403 auth.principal_disabled. Revoked member (frank, also owner_principal_id of PA1): 404 resource.not_found on tenant routes and on the PA1 object route (object ownership grants nothing). No sentinel in any body; business tables unchanged; each denial writes exactly one audit row with the actor set and tenant_id NULL."
@@ -49,7 +51,7 @@ id = "TL-04"
 title = "Authenticated user guesses another tenant UUID"
 owasp = ["API1:2023"]
 milestones = ["M1"]
-state = "red"
+state = "green"
 mutation_allowed = false
 test_modules = ["tests/negative/test_m1_tenant_gates.py"]
 expected = "bob (tenant A viewer) requesting tenant B and a never-seeded tenant UUID gets 404 problem bodies identical except request_id; the same for PB1 vs a never-seeded project; no SENTINEL-TENANT-B in any body. M2 extends this to list counts."
@@ -59,7 +61,7 @@ id = "TL-05"
 title = "Multi-membership user selects an unauthorized tenant"
 owasp = ["API1:2023", "API5:2023"]
 milestones = ["M1"]
-state = "red"
+state = "green"
 mutation_allowed = false
 test_modules = ["tests/negative/test_m1_tenant_gates.py"]
 expected = "dave is editor in A and viewer in B: /tenants/A/me reports editor, /tenants/B/me reports viewer (roles never leak across tenants); tenant C (not a member) is 404; PATCH of a B project is 403 even though dave edits in A; an X-Tenant-Id header never changes the evaluated tenant. Business tables unchanged."
@@ -149,7 +151,7 @@ id = "TL-14"
 title = "Suspended tenant or changed membership state with prior access"
 owasp = ["API1:2023"]
 milestones = ["M1"]
-state = "red"
+state = "green"
 mutation_allowed = false
 test_modules = ["tests/negative/test_m1_tenant_gates.py"]
 expected = "gina (owner of suspended C): 403 tenant.suspended. alice allowed on A, then tenant A is suspended in the DB: next request 403 tenant.suspended; reactivated: allowed again (state is re-read, never cached); never-seeded tenant id is 404. Business tables unchanged apart from the test's own tenant-state flips."
@@ -189,7 +191,7 @@ id = "TL-18"
 title = "Client-supplied identity or role headers/body"
 owasp = ["API3:2023", "API5:2023"]
 milestones = ["M1"]
-state = "red"
+state = "green"
 mutation_allowed = false
 test_modules = ["tests/negative/test_m1_untrusted_context.py"]
 expected = "X-User, X-Role, X-Tenant-Id, X-Forwarded-For and X-Forwarded-User headers are ignored (context reports the token principal and DB role); a body or query carrying role=owner never raises authority (PATCH by a viewer is 403 before the body is processed); a client X-Request-ID is never echoed; business tables unchanged."

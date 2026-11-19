@@ -4,8 +4,8 @@ Scope: the Tenant Boundary Lab (an intentionally breakable lab, a patched implem
 independent oracle and a test runner), run **locally**, with **synthetic** data only. Out of scope:
 production systems, third-party targets, real customer tenancy, credential attacks, Internet scanning.
 
-Status at M0: the model is written before any route exists; mitigations marked *(planned Mx)* are
-specified and tested-first but not implemented yet. Nothing here claims a mitigation is built.
+Status at M1: the model was written before any route existed. Section 4a says which mitigations are
+now built and tested; those marked *(planned Mx)* in section 4 are still only specified.
 
 ## 1. Assets
 
@@ -82,6 +82,22 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 | T-19 | Runner misreports an infrastructure failure as a clean result | R | Distinct exit codes 0 clean / 1 violation / 2 infrastructure error; unavailable DB is an error, never a pass | *(planned M4)* |
 | T-20 | Dependency or supply-chain compromise | T | Lockfile with hashes, bounded ranges, `pip-audit`; CI pinning *(planned M5)* | `pip-audit` (run at M0) |
 
+## 4a. Implementation status (M1)
+
+| Threat | Status | Evidence |
+|---|---|---|
+| T-01, T-02 token forgery and replay | **Built** (gate 1) | TL-01, TL-02, `test_token_verifier.py`, mutation: signature/exp/nbf/iat/aud/iss/lifetime/leeway/required claims |
+| T-03 client-supplied authority | **Built** | TL-18 (headers, query, body, token claims) |
+| T-04, T-05 BOLA and existence oracle | **Built for tenants, projects, invoices** (gates 3, 5) | TL-03, TL-04, `test_m1_gate_pipeline.py` (market scope, invoice coherence, ghost-vs-hidden equality). Counts and timing: M2 / TL-19 |
+| T-06 stale authority | **Built** (re-read every request) | TL-03, TL-05, TL-14, market-access test |
+| T-07 BFLA | **Built at the gate** (gate 6, default deny); handlers in M2 | TL-05, TL-18, `test_app_policy_matches_oracle.py` |
+| T-13 audit poisoning, pre-auth flooding | **Built** (tenant NULL rule, no pre-auth rows); authenticated flooding is residual (L-05) | TL-01..04, `test_m1_gate_pipeline.py` |
+| T-15 oracle collusion | **Built both ways** (D-21) | `test_oracle_independence.py`, `test_app_independence.py` |
+| T-16 committed secrets | **Partly** (no key on disk; no scanner run, L-12) | `test_settings.py` (private key refused and not echoed) |
+| T-17 resource exhaustion | **Partly** (body cap only; L-15, L-19) | `test_m1_gate_pipeline.py`, `test_middleware.py` |
+| T-18 log injection | **Built** (server-generated ids; fixed log fields; no token/body in logs) | TL-18, log tests |
+| T-08..T-12, T-14, T-19, T-20 | Not yet (M2-M5) | n/a |
+
 ## 5. Explicit non-goals and caveats
 
 * No claim that a status code is sufficient evidence: every no-mutation case also requires unchanged state.
@@ -90,8 +106,8 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 * In-process ASGI proves application logic, not network-layer defenses (TLS, proxies, WAF).
 * A passing test suite shows the listed cases pass. It is not proof of security.
 
-## 6. Open risks at M0
+## 6. Open risks at M1
 
-See `LIMITATIONS.md`. The most important: the red tests have only been validated against a throwaway
-spike, not a real implementation; and the policy decisions in `DECISIONS.md` marked "owner approval"
-have not yet been approved.
+See `LIMITATIONS.md`. The most important: only the gates exist, so nothing yet shows the data-bearing
+handlers are safe (M2); the M1 additions D-24, D-25, D-26 and D-28 in `DECISIONS.md` are marked
+"owner approval" and have not yet been approved; no SAST or secret scanner has been run (L-12).

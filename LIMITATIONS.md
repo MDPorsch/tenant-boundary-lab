@@ -1,12 +1,12 @@
 # Limitations and residual risk
 
-Current state: **milestone M0 (contracts and tests only).** Stated plainly so nothing is mistaken for
-more than it is.
+Current state: **milestone M1 (identity and deny-by-default gates).** Stated plainly so nothing is
+mistaken for more than it is.
 
 | ID | Limitation |
 |---|---|
-| L-01 | **There is no application yet.** No route, authentication, database schema or runner exists. 96 behavioural tests fail by design until M1/M2. The repository does not demonstrate any control working. |
-| L-02 | The red tests have been validated only against a **throwaway reference spike** (not committed) plus mutation testing of that spike. This shows the tests and contract are satisfiable and sensitive. It is not evidence about the eventual real implementation. |
+| L-01 | **Only the authentication and tenant gates exist.** Of ten routes only `GET /v1/tenants/{id}/me` has a real handler; the others pass the gates and answer 501. Nothing yet demonstrates project, invoice, contact or membership behaviour, field-level projection, or write-path invariants (M2). There is no runner and no vulnerable variant yet (M3, M4). |
+| L-02 | **Mutation testing samples bug classes; it does not prove their absence.** The 96 tests written red in M0 pass against the real implementation, and `tools/mutation_m1.py` injects 69 security bugs (one at a time) that all fail the suite. Those bugs are the ones I thought of. An equivalent mutant (`alg_confusion`) is caught only on the verifier's internal reason, because PyJWT independently refuses a PEM key as an HMAC secret. |
 | L-03 | The oracle is **data and a loader**. The evaluation engine, case generator and state-diff runner arrive in M4. Today the oracle is checked only by contract tests that encode the same spec prose a second time. |
 | L-04 | A `pytest` pass shows that the listed cases pass. It is not proof of security. Coverage percentage is not proof either. |
 | L-05 | **Audit flooding** by an authenticated principal who deliberately triggers denials remains possible after M1 (pre-authentication noise is log-only, but post-authentication denials write rows). Planned mitigation (per-actor rate limit / coalescing) is not designed yet. |
@@ -16,6 +16,12 @@ more than it is.
 | L-09 | In-process ASGI tests validate application logic only: not TLS, reverse proxies, header normalisation by a real proxy, or network exposure. |
 | L-10 | `auth_version` exists in the schema but is **reserved and unused**: revocation is by principal status, membership and tenant state re-read per request, not by token versioning. There is no token revocation list; a token stays cryptographically valid until `exp` (at most 900 s) but is useless once the principal, membership or tenant state changes. |
 | L-11 | All data is synthetic. The lab is not a model of any real system and is **not for production use**. The vulnerable variant (M3) must never be deployed. |
-| L-12 | No SAST (Semgrep) or secret scanner has been run at M0. `pip-audit` was run once (result in `docs/milestones/M0.md`). Both are scheduled as CI gates in M5. |
+| L-12 | No SAST (Semgrep) or secret scanner has been run (not installed). `pip-audit` was run at M0 and M1 (no known vulnerabilities; results in the milestone reports). Both are scheduled as CI gates in M5. |
 | L-13 | The market model is simplified (a tenant either has a market or not); it does not model per-role or per-resource market grants. |
 | L-14 | No `LICENSE` yet (owner decision D-16). Third-party dependency licences have not been reviewed. |
+| L-15 | **A chunked body is capped only when it is read**, which is after the gates (D-23). An unauthenticated chunked request is answered 401 without its body being read, but a server in front of the app may still buffer it: a reverse proxy body limit is required in any real deployment. |
+| L-16 | **Check-to-use gap.** The gates read the principal, the object's scope and the membership in separate `SELECT`s of one session, with no snapshot isolation. A mutation in M2 must re-check authority inside its own transaction, and PostgreSQL tests in M5 must show it. M1 has no mutating handler, so the gap is not yet exploitable. |
+| L-17 | `audit_events` is **append-only by convention only**: no code path updates or deletes a row, but nothing in the database forbids it. A trigger or revoked grants are planned with PostgreSQL in M5. |
+| L-18 | **Log handling is not designed.** Records carry request ids, operation names and reason codes and never a token, body, e-mail or SQL (tested), but the package configures no handler, no redaction layer and no retention. The route template in a log line is a constant, not user input. |
+| L-19 | **Replay and rate limits.** A token is replayable until it expires (at most 900 s); `jti` is verified to exist but not stored. Only the body size is bounded in M1: there is no rate limit, quota or pagination bound yet (M2). The thread pool that runs the blocking database calls bounds concurrency at the framework default. |
+| L-20 | **Identity timing.** The unknown-principal path does one database lookup that an invalid-signature path does not, so response times differ slightly. Responses are byte-identical apart from the request id (tested); timing is covered by L-07. |

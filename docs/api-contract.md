@@ -1,6 +1,7 @@
 # API contract
 
-Status: **M0 contract, not yet implemented.** Authoritative sources: this file for shapes and
+Status: **M1.** The gate pipeline and `GET /v1/tenants/{tenant_id}/me` are implemented; every other
+route passes the gates and answers `501` until M2. Authoritative sources: this file for shapes and
 conventions; `src/tenantlab/oracle/data/gates.csv` for the ordered checks and their outcomes;
 `capabilities.csv` for who may do what; `field_policy.csv` for which fields appear where.
 Spec reference: `specifications/01_tenant_boundary_lab.md` s5-s6, shared standard s2.
@@ -18,6 +19,10 @@ Spec reference: `specifications/01_tenant_boundary_lab.md` s5-s6, shared standar
 * Request bodies: JSON object, UTF-8, at most **65 536 bytes**. Unknown properties and unknown
   query parameters are **rejected** (422), never ignored.
 * Timestamps are UTC-aware ISO-8601. The server never trusts a client timestamp for a decision.
+* Every response carries `Cache-Control: no-store` and `X-Content-Type-Options: nosniff`.
+* An unknown path, a wrong method on a known path, a trailing slash and any docs/OpenAPI URL answer
+  the same generic `404 resource.not_found` (D-22). A malformed or repeated `Content-Length` is
+  `422 request.invalid` before authentication (D-23).
 
 ## 2. Routes
 
@@ -117,6 +122,8 @@ reason_code, timestamp, correlation_id)`. Never contains tokens, bodies or priva
   `decision` is `allow|deny`. `correlation_id` equals the response `request_id`.
 * **Pre-authentication failures (gates 0-1) write no database row**, only a structured log line
   (TL-01/TL-02: "no DB change"; prevents anonymous audit flooding).
+* `resource_id` is the identifier the caller asked for once it parsed as a UUIDv4 (`NULL` if it was
+  malformed); for collection routes it is the parent's id (D-24).
 * A denial at gates 2, 3 and 5 writes one row with the actor set and `tenant_id` **NULL**. A denial
   at gates 4 and 6-11 writes one row with the resolved `tenant_id` (the actor is an active member).
   So nobody can write into a tenant's audit log, or reveal hidden objects through it (D-10).
@@ -133,19 +140,18 @@ reason_code, timestamp, correlation_id)`. Never contains tokens, bodies or priva
 Deviation from the shared standard (D-05): resource scope is evaluated **before** role, so a hidden
 object is a 404 for every role. The capability gate still precedes any body parsing or side effect.
 
-## 8. Implementation constraints discovered while validating the tests
+## 8. Implementation constraints (implemented in M1, guarded by tests)
 
 * **Bodies are read after the gates.** FastAPI/Starlette parse JSON bodies *before* dependencies
-  run, which would turn "anonymous + malformed JSON" into 422. M1 must authenticate and authorize
-  first and parse/validate the body afterwards (for example by taking the raw `Request` and
-  validating with Pydantic inside the handler, or a custom route class). Required by the
-  TL-01 test `test_tl01_authentication_precedes_body_parsing`.
+  run, which would turn "anonymous + malformed JSON" into 422. The endpoint wrapper therefore takes
+  only the raw `Request`; handlers read and validate the body after the gates. Required by
+  `test_tl01_authentication_precedes_body_parsing`, and guarded structurally by
+  `test_no_endpoint_lets_the_framework_parse_input_before_the_gates`.
 * The 401/403/404 outcomes above must not depend on the order in which the database returns rows.
 
-## 9. M1 interface the red tests rely on
+## 9. The interface the M1 tests rely on (implemented)
 
-The red tests (`tests/negative/test_m1_*.py`) import exactly these names; M1 may add more but must
-provide these:
+The M1 tests (`tests/negative/test_m1_*.py`) import exactly these names:
 
 ```python
 tenantlab.config.Settings(database_url, jwt_issuer, jwt_audience, jwt_public_key_pem)  # pydantic model

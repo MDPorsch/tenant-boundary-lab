@@ -140,7 +140,7 @@ CATALOG_MUTATIONS: dict[str, Callable[[str], str]] = {
     "unknown_milestone": lambda t: _mutate(t, 'milestones = ["M1"]', 'milestones = ["M9"]'),
     "empty_milestones": lambda t: _mutate(t, 'milestones = ["M1"]', "milestones = []"),
     "bad_state": lambda t: _mutate(
-        t, 'state = "red"\nmutation_allowed', 'state = "green"\nmutation_allowed'
+        t, 'state = "green"\nmutation_allowed', 'state = "amber"\nmutation_allowed'
     ),
     "expected_too_vague": lambda t: _mutate(
         t, t.split('expected = "', 1)[1].split('"\n', 1)[0], "it works"
