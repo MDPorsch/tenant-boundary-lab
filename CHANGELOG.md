@@ -4,6 +4,21 @@ All notable changes are recorded here. Pre-release; no version has been tagged.
 
 ## [Unreleased]
 
+### M2.1: timing hardening and secret scanning
+
+- Measured first: a hidden-market project took 5 SQL statements and was +23.5% slower than a missing
+  one (p < 0.001) because the gates returned early; the old timing test tolerated a factor of five
+  and sampled one class after the other (time drifts ~29% across a run).
+- Gates 3-5 now do constant work (D-40): the same lookups in the same order for every not-visible
+  outcome, then decide in the documented order. Hidden vs missing is now +0.9%.
+- TL-19 timing evidence: a deterministic same-SQL test per route family, an interleaved permutation
+  test with a 15% floor over two rounds, a detector check, and tests of the statistics. Written red
+  first. 1098 tests; mutation tools 69/69 (M1) and 52/52 (M2).
+- `tools/secret_scan.py` (gitleaks over all history and the tree, with a canary that proves the
+  scanner works): no findings.
+- Design brief for the productization of this project (`docs/productization/boundarycheck-design.md`,
+  proposed, nothing implemented).
+
 ### M2: the patched API
 
 - All ten routes implemented behind the M1 gates: project list/create/read/patch, private contacts,

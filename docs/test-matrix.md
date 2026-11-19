@@ -55,6 +55,7 @@ stale write, plus a best-effort concurrent run on SQLite); its PostgreSQL part i
 | Middleware | `tests/unit/test_middleware.py` | Request id, body cap for streamed bodies, 500/503 mapping without leaks, crash after the response started is re-raised |
 | Gate pipeline | `tests/negative/test_m1_gate_pipeline.py` | Gate 0 (413), market scope before role, invoice coherence and nested route, malformed path ids (D-11), query strictness, fail-closed 503, logging, concurrency, response headers |
 
+| Timing (TL-19) | `tests/negative/test_m2_timing.py`, `tests/timing.py`, `tests/unit/test_timing_helpers.py` | Identical SQL per not-visible outcome (deterministic); interleaved permutation test with a 15% floor over two rounds; a check that the detector can see a real difference; the statistics themselves |
 | M2 operations | `tests/negative/test_m2_operations.py` | Exact response shape of every route, success audit rows, quota boundary, a mutation whose audit write fails is rolled back |
 | M2 races | `tests/negative/test_m2_races.py` | Authority, version, quota or last owner changing between a handler's pre-check and its write: the statement refuses, the true reason is reported, a race that never settles is 503 |
 | Write statements | `tests/unit/test_patched_service.py` | Each write statement re-checks authority by itself (call it with the state changed underneath) |

@@ -88,7 +88,7 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 |---|---|---|
 | T-01, T-02 token forgery and replay | **Built** (gate 1) | TL-01, TL-02, `test_token_verifier.py`, mutation: signature/exp/nbf/iat/aud/iss/lifetime/leeway/required claims |
 | T-03 client-supplied authority | **Built** | TL-18 (headers, query, body, token claims) |
-| T-04, T-05 BOLA and existence oracle | **Built for tenants, projects, invoices** (gates 3, 5) | TL-03, TL-04, `test_m1_gate_pipeline.py` (market scope, invoice coherence, ghost-vs-hidden equality). Counts and timing: M2 / TL-19 |
+| T-04, T-05 BOLA and existence oracle | **Built for tenants, projects, invoices** (gates 3, 5); not-visible outcomes run identical SQL and show no repeatable 15% timing difference (D-40, L-24) | TL-03, TL-04, `test_m1_gate_pipeline.py` (market scope, invoice coherence, ghost-vs-hidden equality). Counts and timing: M2 / TL-19 |
 | T-06 stale authority | **Built** (re-read every request) | TL-03, TL-05, TL-14, market-access test |
 | T-07 BFLA | **Built** (gate 6 for every route, default deny; app table equals the oracle) | TL-05, TL-06, TL-11, TL-18, `test_app_policy_matches_oracle.py` |
 | T-08 BOPLA | **Built** (private fields on one surface; 403 not a stripped 200; field sets equal the oracle) | TL-09 over every surface and role, `test_m2_operations.py` |

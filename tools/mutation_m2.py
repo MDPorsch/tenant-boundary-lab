@@ -31,6 +31,10 @@ MUTANTS: dict[str, list[tuple[str, str, str]]] = {
     "max_attempts_is_one": [(H, "MAX_ATTEMPTS: Final = 3", "MAX_ATTEMPTS: Final = 1")],
     "reauthorize_does_not_recheck": [(G, "        granted = _evaluate(db, allowed.spec, caller, allowed.path_ids)", "        granted = _Granted(allowed.tenant_id, allowed.role, allowed.path_ids)")],
     "body_read_before_the_gates": [(A, "        allowed = await run_in_threadpool(run_gates, request, spec, deps)\n        body = await request.body() if spec.has_body else b\"\"", "        body = await request.body() if spec.has_body else b\"\"\n        allowed = await run_in_threadpool(run_gates, request, spec, deps)")],
+    # ---- constant work on not-visible paths (D-40): reintroduce an early return --------------
+    "early_return_when_the_target_is_missing": [(G, "    scope = _resolve_scope(db, spec, ids)\n    tenant_id = scope.tenant_id if scope is not None else _NIL\n", "    scope = _resolve_scope(db, spec, ids)\n    if scope is None:\n        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)\n    tenant_id = scope.tenant_id if scope is not None else _NIL\n")],
+    "market_lookup_skipped_for_non_members": [(G, "    if spec.scope is not Scope.TENANT:\n        market_permitted = bool(", "    if spec.scope is not Scope.TENANT and membership is not None:\n        market_permitted = bool(")],
+    "invoice_project_lookup_skipped_without_an_invoice": [(G, "    project = _project_row(db, invoice.project_id if invoice is not None else _NIL)\n    if invoice is None or project is None or project[0] != invoice.tenant_id:", "    if invoice is None:\n        return None\n    project = _project_row(db, invoice.project_id)\n    if project is None or project[0] != invoice.tenant_id:")],
     # ---- the write statements re-check authority (D-35) -------------------------------------
     "row_version_predicate_removed": [(S, "            Project.row_version == row_version,\n", "")],
     "project_tenant_predicate_removed": [(S, "            Project.tenant_id == tenant_id,\n            Project.row_version == row_version,", "            Project.row_version == row_version,")],

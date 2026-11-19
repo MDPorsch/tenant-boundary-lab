@@ -43,32 +43,40 @@ MUTANTS = {
     "foreign_tenant_is_403_not_404 (existence oracle)": [
         (
             G,
-            "    if membership is None:\n        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)",
-            "    if membership is None:\n        raise _Deny(ErrorCode.AUTHZ_FORBIDDEN, None, target)",
+            "    if scope is None or membership is None:\n        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)",
+            "    if scope is None or membership is None:\n        raise _Deny(ErrorCode.AUTHZ_FORBIDDEN, None, target)",
         )
     ],
     "audit_poisoning (tenant_id set on 404)": [
         (
             G,
-            "    if membership is None:\n        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)",
-            "    if membership is None:\n        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, scope.tenant_id, target)",
+            "    if scope is None or membership is None:\n        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)",
+            "    if scope is None or membership is None:\n        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, tenant_id, target)",
         )
     ],
     "capability_unchecked": [
         (G, "if role is None or not role_holds(spec.operation, role):", "if role is None:")
     ],
     "membership_not_filtered_by_tenant (role bleed)": [
-        (G, "            Membership.tenant_id == scope.tenant_id,\n", "")
+        (G, "            Membership.tenant_id == tenant_id,\n", "")
     ],
     "query_params_ignored": [
         (G, "if len(names) != len(set(names)) or not set(names) <= spec.query_params:", "if False:")
     ],
     "market_gate_skipped": [
-        (G, "if scope.market_id is not None and not db.scalar(", "if False and not db.scalar(")
+        (
+            G,
+            "    if not market_permitted:\n        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)",
+            "    if False:\n        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)",
+        )
     ],
     "path_uuid_validation_removed": [(G, "if len(ids) != len(parsed):", "if False:")],
     "invoice_tenant_coherence_removed": [
-        (G, "if project is None or project[0] != invoice.tenant_id:", "if project is None:")
+        (
+            G,
+            "if invoice is None or project is None or project[0] != invoice.tenant_id:",
+            "if invoice is None or project is None:",
+        )
     ],
     "nested_invoice_project_not_matched": [
         (

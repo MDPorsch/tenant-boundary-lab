@@ -25,7 +25,7 @@ from typing import Any
 import pytest
 
 from tests.harness import Lab
-from tests.support_m2 import count_statements
+from tests.support_m2 import count_statements, insert_projects
 from tests.timing import (
     EFFECT_THRESHOLD,
     ROUNDS,
@@ -79,13 +79,21 @@ def _groups(lab: Lab) -> dict[str, dict[str, Request]]:
             "hidden market": ("alice", "GET", f"/v1/invoices/{ids['IA2']}", None),
             "foreign tenant": ("alice", "GET", f"/v1/invoices/{ids['IB1']}", None),
             "missing": ("alice", "GET", f"/v1/invoices/{ids['GI']}", None),
-            "nested, wrong project": (
+        },
+        "invoice, nested route": {
+            "hidden market": (
+                "alice", "GET", f"/v1/projects/{ids['PA2']}/invoices/{ids['IA2']}", None,
+            ),
+            "foreign tenant": (
+                "alice", "GET", f"/v1/projects/{ids['PB1']}/invoices/{ids['IB1']}", None,
+            ),
+            "wrong project": (
                 "alice", "GET", f"/v1/projects/{ids['PA1']}/invoices/{ids['IB1']}", None,
             ),
-            "nested, missing project": (
+            "missing project": (
                 "alice", "GET", f"/v1/projects/{ids['GP']}/invoices/{ids['IB1']}", None,
             ),
-            "nested, missing invoice": (
+            "missing invoice": (
                 "alice", "GET", f"/v1/projects/{ids['PA1']}/invoices/{ids['GI']}", None,
             ),
         },
@@ -120,13 +128,22 @@ async def _statements(lab: Lab, request: Request) -> list[str]:
 # ---------------------------------------------------------------------- layer 1: structure ----
 @pytest.mark.parametrize(
     "family",
-    ["project read", "project write", "project contacts", "invoice", "tenant", "membership"],
+    [
+        "project read",
+        "project write",
+        "project contacts",
+        "invoice",
+        "invoice, nested route",
+        "tenant",
+        "membership",
+    ],
 )
 async def test_tl19_every_not_visible_outcome_runs_the_same_sql(
     open_lab: OpenLab, family: str
 ) -> None:
     """A hidden, a foreign, a revoked and a missing target are one case to an observer; if the
-    server also does the same database work for each, there is nothing for a clock to find."""
+    server also does the same database work for each, there is nothing for a clock to find.
+    (Within ONE route: two routes legitimately run different statements.)"""
     lab: Lab = await open_lab()
     sequences = {
         name: await _statements(lab, request) for name, request in _groups(lab)[family].items()
@@ -191,22 +208,27 @@ async def test_tl19_no_timing_difference_of_15_percent_is_detectable_between_hid
 
 
 async def test_tl19_the_timing_detector_can_see_a_real_difference(open_lab: OpenLab) -> None:
-    """Anti-vacuity: a successful project read does clearly more work than a 404. The detector
-    must flag that in both rounds, or layer 2 above could be passing because it is blind."""
+    """Anti-vacuity: serving a 100-row page does clearly more work than the context probe. The
+    detector must flag that in every round, or layer 2 above could be passing because it is blind.
+    (An earlier version compared a 200 with a 404; once the gates did constant work a 404 costs
+    about as much as a 200, which is the point of D-40 and no longer a 'real difference'.)"""
     lab: Lab = await open_lab()
-    pa1, ghost = lab.fx.project("PA1").id, lab.fx.never_seeded["project"]
+    insert_projects(lab, tenant="A", market="UK", count=100)
     headers = lab.bearer("alice")
+    tenant_a = lab.fx.tenant("A").id
 
-    async def visible() -> Any:
-        return await lab.request("GET", f"/v1/projects/{pa1}", headers=headers)
+    async def big_page() -> Any:
+        return await lab.request(
+            "GET", f"/v1/tenants/{tenant_a}/projects?limit=100", headers=headers
+        )
 
-    async def missing() -> Any:
-        return await lab.request("GET", f"/v1/projects/{ghost}", headers=headers)
+    async def probe() -> Any:
+        return await lab.request("GET", f"/v1/tenants/{tenant_a}/me", headers=headers)
 
     seen = 0
     for round_number in range(ROUNDS):
         samples = await interleaved_samples(
-            {"visible": visible, "missing": missing}, SAMPLES_PER_CLASS, seed=100 + round_number
+            {"page": big_page, "probe": probe}, SAMPLES_PER_CLASS, seed=100 + round_number
         )
-        seen += flagged(samples["visible"], samples["missing"])
-    assert seen == ROUNDS, "the detector failed to see a response that does ~2x the work"
+        seen += flagged(samples["page"], samples["probe"])
+    assert seen == ROUNDS, "the detector failed to see a 100-row page versus a cheap probe"

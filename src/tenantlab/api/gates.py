@@ -52,6 +52,7 @@ from tenantlab.schemas.errors import ErrorCode, FieldError
 logger = logging.getLogger("tenantlab.gates")
 
 WWW_AUTHENTICATE: Final = "Bearer"
+_NIL: Final = UUID(int=0)  # matches no row: a stand-in id so lookups run even when nothing exists
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,24 +197,43 @@ def _authorize(db: Session, request: Request, spec: RouteSpec, caller: _Caller) 
 
 def _evaluate(db: Session, spec: RouteSpec, caller: _Caller, ids: dict[str, UUID]) -> _Granted:
     """Gates 3-6 for already-parsed path ids. Used by the first pass AND by the re-check a
-    mutation runs inside its own transaction (D-35)."""
+    mutation runs inside its own transaction (D-35).
+
+    CONSTANT WORK (D-40): the lookups below run in the same order for EVERY outcome, with a nil
+    id standing in for whatever does not exist. Only afterwards are the gates decided, in their
+    documented order. A hidden, a foreign, a revoked and a missing target therefore execute the
+    identical SQL sequence, so the database work (and the time it takes) cannot tell them apart.
+    """
     target = ids[spec.target_param]
     scope = _resolve_scope(db, spec, ids)
-    if scope is None:
-        raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)
+    tenant_id = scope.tenant_id if scope is not None else _NIL
+    market_id = scope.market_id if scope is not None and scope.market_id is not None else _NIL
 
-    # Gate 3: ACTIVE membership in the tenant that owns the target. A revoked member, a stranger
-    # and a nonexistent tenant are one and the same case: 404. Ownership of a row grants nothing.
     membership = db.execute(
         select(Membership.role, Tenant.state)
         .join(Tenant, Tenant.id == Membership.tenant_id)
         .where(
             Membership.principal_id == caller.principal_id,
-            Membership.tenant_id == scope.tenant_id,
+            Membership.tenant_id == tenant_id,
             Membership.status == "active",
         )
     ).one_or_none()
-    if membership is None:
+    market_permitted = True  # tenant-scoped routes have no market dimension
+    if spec.scope is not Scope.TENANT:
+        market_permitted = bool(
+            db.scalar(
+                select(
+                    exists().where(
+                        TenantMarketAccess.tenant_id == tenant_id,
+                        TenantMarketAccess.market_id == market_id,
+                    )
+                )
+            )
+        )
+
+    # Gate 3: ACTIVE membership in the tenant that owns the target. A revoked member, a stranger
+    # and a nonexistent target are one and the same case: 404. Ownership of a row grants nothing.
+    if scope is None or membership is None:
         raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)
     role_text, tenant_state = membership
 
@@ -222,14 +242,7 @@ def _evaluate(db: Session, spec: RouteSpec, caller: _Caller, ids: dict[str, UUID
         raise _Deny(ErrorCode.TENANT_SUSPENDED, scope.tenant_id, target)
 
     # Gate 5 (D-05, before role): a project in a market the tenant may not use is not visible.
-    if scope.market_id is not None and not db.scalar(
-        select(
-            exists().where(
-                TenantMarketAccess.tenant_id == scope.tenant_id,
-                TenantMarketAccess.market_id == scope.market_id,
-            )
-        )
-    ):
+    if not market_permitted:
         raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)
 
     # Gate 6: the capability table. Unknown role or operation is denied.
@@ -262,10 +275,9 @@ def _resolve_scope(db: Session, spec: RouteSpec, ids: dict[str, UUID]) -> _Scope
     if spec.scope is Scope.PROJECT_INVOICE:
         invoice_query = invoice_query.where(Invoice.project_id == ids["project_id"])
     invoice = db.execute(invoice_query).one_or_none()
-    if invoice is None:
-        return None
-    project = _project_row(db, invoice.project_id)
-    if project is None or project[0] != invoice.tenant_id:
+    # The project lookup runs even when there is no invoice (nil id): constant work (D-40).
+    project = _project_row(db, invoice.project_id if invoice is not None else _NIL)
+    if invoice is None or project is None or project[0] != invoice.tenant_id:
         return None
     return _Scope(*project)
 
