@@ -1,0 +1,215 @@
+# Case catalog: TL-01..TL-20 from specifications/01_tenant_boundary_lab.md s9.
+#
+# state = "red"     a failing test exists today and names this case (tests-first)
+# state = "planned" the test is written at the START of the listed milestone, before its code
+#
+# `milestones`: first entry = the milestone whose code must make the case pass.
+# OWASP IDs are API Security Top 10:2023. "n/a" = data-integrity/race, no OWASP API category.
+#
+# `expected` is the falsifiable evidence. A status code alone is never sufficient: every case
+# with mutation_allowed=false also requires the business tables to be byte-identical before
+# and after, and the response body to contain no sentinel of a tenant/field the actor may not see.
+
+[meta]
+version = 1
+source = "specifications/01_tenant_boundary_lab.md section 9"
+
+[[cases]]
+id = "TL-01"
+title = "No, malformed or forged bearer"
+owasp = ["API2:2023"]
+milestones = ["M1"]
+state = "red"
+mutation_allowed = false
+test_modules = ["tests/negative/test_m1_authentication.py"]
+expected = "401 auth.token_invalid as application/problem+json with WWW-Authenticate: Bearer; covers missing header, non-Bearer scheme, garbage, forged signature, alg=none, HS256 key-confusion, truncated signature, token in query string; authentication precedes body validation (malformed JSON body still 401); the WHOLE database (business tables AND audit_events) is unchanged: pre-authentication failures write structured logs only, never rows; token text absent from the body."
+
+[[cases]]
+id = "TL-02"
+title = "Expired, not-yet-valid, wrong issuer/audience JWT"
+owasp = ["API2:2023"]
+milestones = ["M1"]
+state = "red"
+mutation_allowed = false
+test_modules = ["tests/negative/test_m1_authentication.py"]
+expected = "Same evidence as TL-01 for: expired, nbf in the future, iat in the future, wrong iss, wrong aud, missing sub/jti/exp/iat/nbf, lifetime above 900s, sub not a UUID, sub a UUID of no principal (indistinguishable from an invalid token). The whole database is unchanged: pre-authentication failures write no rows."
+
+[[cases]]
+id = "TL-03"
+title = "Disabled actor or revoked membership"
+owasp = ["API2:2023", "API1:2023"]
+milestones = ["M1"]
+state = "red"
+mutation_allowed = false
+test_modules = ["tests/negative/test_m1_tenant_gates.py"]
+expected = "Disabled principal (erin): 403 auth.principal_disabled. Revoked member (frank, also owner_principal_id of PA1): 404 resource.not_found on tenant routes and on the PA1 object route (object ownership grants nothing). No sentinel in any body; business tables unchanged; each denial writes exactly one audit row with the actor set and tenant_id NULL."
+
+[[cases]]
+id = "TL-04"
+title = "Authenticated user guesses another tenant UUID"
+owasp = ["API1:2023"]
+milestones = ["M1"]
+state = "red"
+mutation_allowed = false
+test_modules = ["tests/negative/test_m1_tenant_gates.py"]
+expected = "bob (tenant A viewer) requesting tenant B and a never-seeded tenant UUID gets 404 problem bodies identical except request_id; the same for PB1 vs a never-seeded project; no SENTINEL-TENANT-B in any body. M2 extends this to list counts."
+
+[[cases]]
+id = "TL-05"
+title = "Multi-membership user selects an unauthorized tenant"
+owasp = ["API1:2023", "API5:2023"]
+milestones = ["M1"]
+state = "red"
+mutation_allowed = false
+test_modules = ["tests/negative/test_m1_tenant_gates.py"]
+expected = "dave is editor in A and viewer in B: /tenants/A/me reports editor, /tenants/B/me reports viewer (roles never leak across tenants); tenant C (not a member) is 404; PATCH of a B project is 403 even though dave edits in A; an X-Tenant-Id header never changes the evaluated tenant. Business tables unchanged."
+
+[[cases]]
+id = "TL-06"
+title = "Viewer PATCH, admin endpoint, field overposting"
+owasp = ["API5:2023", "API3:2023"]
+milestones = ["M2"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "bob PATCH of PA1 is 403; editor/viewer on audit and contacts routes is 403; PATCH/POST bodies carrying tenant_id, owner_principal_id, market, id or role are 422 request.invalid; business tables identical before/after."
+
+[[cases]]
+id = "TL-07"
+title = "Project A id with invoice B id in a nested route"
+owasp = ["API1:2023"]
+milestones = ["M2"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "GET /v1/projects/{PA1}/invoices/{IB1} and /v1/projects/{PB1}/invoices/{IA1} are 404 indistinguishable from never-seeded ids; a deliberately incoherent invoice (invoice.tenant != project.tenant, injected by the test) is never served. Business tables unchanged apart from the test's own injected incoherent row."
+
+[[cases]]
+id = "TL-08"
+title = "Cross-market access within the same tenant"
+owasp = ["API1:2023"]
+milestones = ["M2"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "alice (tenant A owner) gets 404 for PA2 (US), its contacts and invoice IA2 on read and write; creating a project in US is 403 authz.market_denied; PA2 absent from lists and from totals; no sentinel of PA2 or CA2 anywhere. Business tables unchanged: a denied write leaves the row identical."
+
+[[cases]]
+id = "TL-09"
+title = "Property-level leakage via response, pagination, export, error"
+owasp = ["API3:2023"]
+milestones = ["M2"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "For every surface in field_policy.csv, fields appear only on their listed surfaces to roles at or above read_min_role; SENTINEL-PRIV and *.invalid emails never appear in project list/detail, invoice, audit, error bodies or contacts for editor/viewer (403 not a stripped 200). Business tables unchanged."
+
+[[cases]]
+id = "TL-10"
+title = "Hostile pagination and identifier input"
+owasp = ["API4:2023"]
+milestones = ["M2"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "limit=0/-1/101/abc, oversized or malformed cursor, page=-1 (unknown parameter), invalid UUID path ids all give 422 request.invalid with no echo of the input; work is bounded (a statement-count ceiling per request). Business tables unchanged."
+
+[[cases]]
+id = "TL-11"
+title = "Last owner removes themselves"
+owasp = ["API5:2023"]
+milestones = ["M2"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "alice (sole active owner of A) demoting or revoking her own membership is 409 conflict.last_owner; membership rows identical before/after (atomic); a non-owner PUT on any membership is 403 including self-promotion."
+
+[[cases]]
+id = "TL-12"
+title = "Two writers use the same row_version"
+owasp = ["n/a"]
+milestones = ["M2", "M5"]
+state = "planned"
+mutation_allowed = true
+test_modules = []
+expected = "Exactly one PATCH returns 200 with row_version+1; the other 409 conflict.stale_revision; final row equals the winner. M2: sequential stale write on SQLite. M5: truly concurrent on PostgreSQL (SQLite cannot represent row-lock behaviour)."
+
+[[cases]]
+id = "TL-13"
+title = "Membership revoked between list and object read"
+owasp = ["API1:2023"]
+milestones = ["M2"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "bob lists projects (200); after the membership row is revoked in the DB, GET of the same project is 404 on the very next request; nothing is served from a cache. Business tables unchanged apart from the test's own revocation."
+
+[[cases]]
+id = "TL-14"
+title = "Suspended tenant or changed membership state with prior access"
+owasp = ["API1:2023"]
+milestones = ["M1"]
+state = "red"
+mutation_allowed = false
+test_modules = ["tests/negative/test_m1_tenant_gates.py"]
+expected = "gina (owner of suspended C): 403 tenant.suspended. alice allowed on A, then tenant A is suspended in the DB: next request 403 tenant.suspended; reactivated: allowed again (state is re-read, never cached); never-seeded tenant id is 404. Business tables unchanged apart from the test's own tenant-state flips."
+
+[[cases]]
+id = "TL-15"
+title = "UTF-8, overlong fields, unknown keys, type confusion"
+owasp = ["API3:2023", "API4:2023"]
+milestones = ["M2"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "Unknown JSON keys, title above 120 chars, NUL/control characters, invalid UTF-8, row_version given as a string, nested objects where scalars are expected: 422 request.invalid with no input echo; body above 65536 bytes: 413 request.too_large before authentication. Business tables unchanged."
+
+[[cases]]
+id = "TL-16"
+title = "Vulnerable router enabled outside the local lab"
+owasp = ["API8:2023"]
+milestones = ["M3"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "Constructing the vulnerable app without LAB_MODE=1, with TENANTLAB_ENV=production, or bound to a non-loopback host raises at startup (hard failure, no fallback to patched); importing the default application never imports tenantlab.lab.vulnerable (verified in a clean subprocess)."
+
+[[cases]]
+id = "TL-17"
+title = "Database write occurs and then a 403 is returned"
+owasp = ["API5:2023", "API1:2023"]
+milestones = ["M4"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "Against a deliberately broken fixture that writes before denying, the runner reports a policy violation from the state diff although the status code matches the oracle; the run exits 1, never 0."
+
+[[cases]]
+id = "TL-18"
+title = "Client-supplied identity or role headers/body"
+owasp = ["API3:2023", "API5:2023"]
+milestones = ["M1"]
+state = "red"
+mutation_allowed = false
+test_modules = ["tests/negative/test_m1_untrusted_context.py"]
+expected = "X-User, X-Role, X-Tenant-Id, X-Forwarded-For and X-Forwarded-User headers are ignored (context reports the token principal and DB role); a body or query carrying role=owner never raises authority (PATCH by a viewer is 403 before the body is processed); a client X-Request-ID is never echoed; business tables unchanged."
+
+[[cases]]
+id = "TL-19"
+title = "List totals and timing reveal hidden data"
+owasp = ["API1:2023", "API3:2023"]
+milestones = ["M2"]
+state = "planned"
+mutation_allowed = false
+test_modules = []
+expected = "The list total equals the number of objects the actor may read; adding rows to another tenant or to a hidden market never changes it. Timing: only a gross-difference smoke check; constant-time behaviour is explicitly NOT claimed (LIMITATIONS). Business tables unchanged."
+
+[[cases]]
+id = "TL-20"
+title = "Overlapping membership and market-access changes"
+owasp = ["API1:2023"]
+milestones = ["M5"]
+state = "planned"
+mutation_allowed = true
+test_modules = []
+expected = "On PostgreSQL, concurrent revoke/market-access changes versus reads: once the change commits, every later request is denied; no request observes a mixed state; authorization state is re-queried inside the request transaction."

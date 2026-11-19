@@ -1,0 +1,38 @@
+resource,field,read_min_role,surfaces,on_create,on_update,notes
+tenant_context,principal_id,viewer,tenant.context,server,n/a,"derived from the verified token"
+tenant_context,tenant_id,viewer,tenant.context,server,n/a,"echo of the authorised path tenant"
+tenant_context,role,viewer,tenant.context,server,n/a,"role is read from the DB membership, never from the request"
+project,id,viewer,project.list_item|project.detail,server,server,
+project,tenant_id,viewer,project.list_item|project.detail,server,server,"selected by the server from the authorised path tenant; never client-writable"
+project,market,viewer,project.list_item|project.detail,client,server,"market code; immutable after create in the MVP"
+project,title,viewer,project.list_item|project.detail,client,client,
+project,status,viewer,project.list_item|project.detail,server,client,"created as draft; updates limited to draft|active|archived"
+project,row_version,viewer,project.list_item|project.detail,server,precondition,"on update the client sends the version it read; it is a precondition, not a stored value"
+project,owner_principal_id,editor,project.detail,server,server,"object ownership is informational only and never grants rights (D-04)"
+contact,id,viewer,project.detail|contacts.private,server,n/a,
+contact,public_name,viewer,project.detail|contacts.private,server,n/a,
+contact,email_private,admin,contacts.private,server,n/a,"must never appear on any surface other than contacts.private"
+contact,phone_private,admin,contacts.private,server,n/a,"must never appear on any surface other than contacts.private"
+invoice,id,viewer,invoice.detail,server,n/a,
+invoice,tenant_id,viewer,invoice.detail,server,n/a,
+invoice,project_id,viewer,invoice.detail,server,n/a,
+invoice,amount_minor,viewer,invoice.detail,server,n/a,
+invoice,currency,viewer,invoice.detail,server,n/a,
+invoice,status,viewer,invoice.detail,server,n/a,
+membership,principal_id,owner,membership.detail,server,server,"taken from the path"
+membership,tenant_id,owner,membership.detail,server,server,"taken from the path"
+membership,role,owner,membership.detail,n/a,client,"owner|admin|editor|viewer"
+membership,status,owner,membership.detail,n/a,client,"active|revoked"
+membership,version,owner,membership.detail,n/a,precondition,
+audit_event,id,admin,audit.list_item,server,n/a,
+audit_event,actor_id,admin,audit.list_item,server,n/a,
+audit_event,tenant_id,admin,audit.list_item,server,n/a,
+audit_event,action,admin,audit.list_item,server,n/a,
+audit_event,resource_type,admin,audit.list_item,server,n/a,
+audit_event,resource_id,admin,audit.list_item,server,n/a,
+audit_event,decision,admin,audit.list_item,server,n/a,
+audit_event,reason_code,admin,audit.list_item,server,n/a,
+audit_event,timestamp,admin,audit.list_item,server,n/a,
+audit_event,correlation_id,admin,audit.list_item,server,n/a,
+principal,email,never,,server,n/a,"synthetic email; not an authorization key and never returned by any endpoint"
+principal,auth_version,never,,server,n/a,"reserved column; never returned"

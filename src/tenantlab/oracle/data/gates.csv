@@ -1,0 +1,13 @@
+order,gate,applies_to,deny_condition,http_status,problem_code,audit,standard_ref
+0,transport_limits,all,request body exceeds the byte cap (checked before authentication; identity-independent),413,request.too_large,none,s1 payload limits
+1,authenticate,all,bearer absent/malformed/unverifiable; alg is not EdDSA; iss or aud mismatch; sub/jti/iat/nbf/exp missing or invalid; expired; not yet valid; lifetime above 900s; sub is not an existing principal,401,auth.token_invalid,none,s2 authenticate
+2,principal_status,all,principal.status is not active,403,auth.principal_disabled,tenant_null,s2 principal status
+3,tenant_membership,all,"no ACTIVE membership of the principal in the target tenant (path tenant, or the object's tenant); target tenant or object does not exist",404,resource.not_found,tenant_null,s2 tenant membership
+4,tenant_state,all,tenant.state is not active,403,tenant.suspended,tenant,s2 tenant membership (tenant state)
+5,resource_scope,object routes,the object's market is not in tenant_market_access for the object's tenant,404,resource.not_found,tenant_null,s2 resource ownership/scope (see D-05: evaluated before role)
+6,role_capability,all,the member's role does not hold the operation's capability (capabilities.csv); an unknown operation or role is denied,403,authz.forbidden,tenant,s2 role/capability
+7,market_permit,project.create,the requested market is not permitted for the tenant,403,authz.market_denied,tenant,s2 resource ownership/scope
+8,input_validation,requests with input,unknown/forbidden/overlong/mistyped property; invalid UUID; invalid pagination; unknown query parameter,422,request.invalid,tenant,s2 object property permission
+9,quota,project.create,per-tenant project quota exceeded,429,quota.exceeded,tenant,s2 rate/quota
+10,state_precondition,project.write,row_version precondition does not match the stored row_version,409,conflict.stale_revision,tenant,s2 action preconditions
+11,state_invariant,member.role.write,the change would leave the tenant with no active owner,409,conflict.last_owner,tenant,s2 action preconditions

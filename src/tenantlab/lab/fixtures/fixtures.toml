@@ -1,0 +1,295 @@
+# Synthetic fixtures for the Tenant Boundary Lab (M0 contract).
+#
+# Everything here is FICTIONAL. No real people, clients, domains or credentials.
+# Emails use the reserved ".invalid" TLD (RFC 2606/6761).
+#
+# UUID scheme (valid UUIDv4 shape, hand-readable):
+#   principals 1000..., tenants 2000..., markets 3000..., memberships 4000...,
+#   projects 5000..., invoices 6000..., contacts 7000...   ; last byte = sequence number.
+#   Suffix "ff" is reserved for ids that are NEVER seeded (existence-oracle probes, TL-04).
+#
+# Leak sentinels: every tenant-owned title contains SENTINEL-TENANT-<x>; every private
+# contact value contains SENTINEL-PRIV. A response that shows a sentinel to an actor who
+# must not see it is a leak, independent of status codes.
+
+[meta]
+version = 1
+private_sentinel = "SENTINEL-PRIV"
+tenant_sentinel_prefix = "SENTINEL-TENANT-"
+
+[meta.never_seeded]
+principal = "10000000-0000-4000-8000-0000000000ff"
+tenant = "20000000-0000-4000-8000-0000000000ff"
+project = "50000000-0000-4000-8000-0000000000ff"
+invoice = "60000000-0000-4000-8000-0000000000ff"
+
+# ---------------------------------------------------------------- principals --
+[[principals]]
+key = "alice"   # tenant A owner
+id = "10000000-0000-4000-8000-000000000001"
+email = "alice@tenantlab.invalid"
+status = "active"
+auth_version = 1
+
+[[principals]]
+key = "bob"     # tenant A viewer
+id = "10000000-0000-4000-8000-000000000002"
+email = "bob@tenantlab.invalid"
+status = "active"
+auth_version = 1
+
+[[principals]]
+key = "carla"   # tenant B admin
+id = "10000000-0000-4000-8000-000000000003"
+email = "carla@tenantlab.invalid"
+status = "active"
+auth_version = 1
+
+[[principals]]
+key = "dave"    # multi-membership: tenant A editor AND tenant B viewer
+id = "10000000-0000-4000-8000-000000000004"
+email = "dave@tenantlab.invalid"
+status = "active"
+auth_version = 1
+
+[[principals]]
+key = "erin"    # DISABLED principal that still holds an active tenant A membership
+id = "10000000-0000-4000-8000-000000000005"
+email = "erin@tenantlab.invalid"
+status = "disabled"
+auth_version = 1
+
+[[principals]]
+key = "frank"   # REVOKED tenant A membership; still the owner_principal_id of project PA1
+id = "10000000-0000-4000-8000-000000000006"
+email = "frank@tenantlab.invalid"
+status = "active"
+auth_version = 1
+
+[[principals]]
+key = "gina"    # owner of SUSPENDED tenant C (added in M0 for TL-14; see DECISIONS D-07)
+id = "10000000-0000-4000-8000-000000000007"
+email = "gina@tenantlab.invalid"
+status = "active"
+auth_version = 1
+
+# ------------------------------------------------------------------- tenants --
+[[tenants]]
+key = "A"
+id = "20000000-0000-4000-8000-000000000001"
+slug = "tenant-a"
+state = "active"
+
+[[tenants]]
+key = "B"
+id = "20000000-0000-4000-8000-000000000002"
+slug = "tenant-b"
+state = "active"
+
+[[tenants]]
+key = "C"
+id = "20000000-0000-4000-8000-000000000003"
+slug = "tenant-c"
+state = "suspended"
+
+# ------------------------------------------------------------------- markets --
+[[markets]]
+key = "UK"
+id = "30000000-0000-4000-8000-000000000001"
+code = "UK"
+
+[[markets]]
+key = "US"
+id = "30000000-0000-4000-8000-000000000002"
+code = "US"
+
+# Disjoint market permissions. Tenant A has NO access to US even though project PA2
+# (US) exists in tenant A: models access revoked after the row was created (TL-08, TL-20).
+[[tenant_market_access]]
+tenant = "A"
+market = "UK"
+
+[[tenant_market_access]]
+tenant = "B"
+market = "US"
+
+[[tenant_market_access]]
+tenant = "C"
+market = "UK"
+
+# --------------------------------------------------------------- memberships --
+[[memberships]]
+key = "m_alice_A"
+id = "40000000-0000-4000-8000-000000000001"
+principal = "alice"
+tenant = "A"
+role = "owner"
+status = "active"
+version = 1
+
+[[memberships]]
+key = "m_bob_A"
+id = "40000000-0000-4000-8000-000000000002"
+principal = "bob"
+tenant = "A"
+role = "viewer"
+status = "active"
+version = 1
+
+[[memberships]]
+key = "m_carla_B"
+id = "40000000-0000-4000-8000-000000000003"
+principal = "carla"
+tenant = "B"
+role = "admin"
+status = "active"
+version = 1
+
+[[memberships]]
+key = "m_dave_A"
+id = "40000000-0000-4000-8000-000000000004"
+principal = "dave"
+tenant = "A"
+role = "editor"
+status = "active"
+version = 1
+
+[[memberships]]
+key = "m_dave_B"
+id = "40000000-0000-4000-8000-000000000005"
+principal = "dave"
+tenant = "B"
+role = "viewer"
+status = "active"
+version = 1
+
+[[memberships]]
+key = "m_erin_A"
+id = "40000000-0000-4000-8000-000000000006"
+principal = "erin"
+tenant = "A"
+role = "editor"
+status = "active"
+version = 1
+
+[[memberships]]
+key = "m_frank_A"
+id = "40000000-0000-4000-8000-000000000007"
+principal = "frank"
+tenant = "A"
+role = "editor"
+status = "revoked"
+version = 2
+
+[[memberships]]
+key = "m_gina_C"
+id = "40000000-0000-4000-8000-000000000008"
+principal = "gina"
+tenant = "C"
+role = "owner"
+status = "active"
+version = 1
+
+# ------------------------------------------------------------------ projects --
+[[projects]]
+key = "PA1"     # visible tenant A project; owner_principal is a REVOKED member (TL-03)
+id = "50000000-0000-4000-8000-000000000001"
+tenant = "A"
+market = "UK"
+owner = "frank"
+title = "SENTINEL-TENANT-A UK launch"
+status = "active"
+row_version = 1
+
+[[projects]]
+key = "PA2"     # tenant A project in a market A is not permitted to use (TL-08)
+id = "50000000-0000-4000-8000-000000000002"
+tenant = "A"
+market = "US"
+owner = "alice"
+title = "SENTINEL-TENANT-A US pilot"
+status = "active"
+row_version = 1
+
+[[projects]]
+key = "PB1"
+id = "50000000-0000-4000-8000-000000000003"
+tenant = "B"
+market = "US"
+owner = "carla"
+title = "SENTINEL-TENANT-B US rollout"
+status = "active"
+row_version = 1
+
+[[projects]]
+key = "PC1"     # project of the suspended tenant C (TL-14)
+id = "50000000-0000-4000-8000-000000000004"
+tenant = "C"
+market = "UK"
+owner = "gina"
+title = "SENTINEL-TENANT-C UK archive"
+status = "active"
+row_version = 1
+
+# ------------------------------------------------------------------ invoices --
+# Baseline fixtures are tenant-coherent (invoice.tenant == project.tenant). Incoherent
+# rows (TL-07) are injected by that test only, never seeded by default.
+[[invoices]]
+key = "IA1"
+id = "60000000-0000-4000-8000-000000000001"
+tenant = "A"
+project = "PA1"
+amount_minor = 125000
+currency = "GBP"
+status = "issued"
+
+[[invoices]]
+key = "IA2"     # invoice of the hidden-market project PA2 (TL-08)
+id = "60000000-0000-4000-8000-000000000002"
+tenant = "A"
+project = "PA2"
+amount_minor = 5000
+currency = "USD"
+status = "issued"
+
+[[invoices]]
+key = "IB1"
+id = "60000000-0000-4000-8000-000000000003"
+tenant = "B"
+project = "PB1"
+amount_minor = 98000
+currency = "USD"
+status = "draft"
+
+# ----------------------------------------------------------- project contacts --
+[[project_contacts]]
+key = "CA1"
+id = "70000000-0000-4000-8000-000000000001"
+project = "PA1"
+public_name = "Ada Example"
+email_private = "SENTINEL-PRIV-EMAIL-CA1@tenantlab.invalid"
+phone_private = "SENTINEL-PRIV-PHONE-CA1"
+
+[[project_contacts]]
+key = "CA2"
+id = "70000000-0000-4000-8000-000000000002"
+project = "PA2"
+public_name = "Ana Example"
+email_private = "SENTINEL-PRIV-EMAIL-CA2@tenantlab.invalid"
+phone_private = "SENTINEL-PRIV-PHONE-CA2"
+
+[[project_contacts]]
+key = "CB1"
+id = "70000000-0000-4000-8000-000000000003"
+project = "PB1"
+public_name = "Bea Example"
+email_private = "SENTINEL-PRIV-EMAIL-CB1@tenantlab.invalid"
+phone_private = "SENTINEL-PRIV-PHONE-CB1"
+
+[[project_contacts]]
+key = "CC1"
+id = "70000000-0000-4000-8000-000000000004"
+project = "PC1"
+public_name = "Cy Example"
+email_private = "SENTINEL-PRIV-EMAIL-CC1@tenantlab.invalid"
+phone_private = "SENTINEL-PRIV-PHONE-CC1"

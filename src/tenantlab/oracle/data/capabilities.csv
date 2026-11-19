@@ -1,0 +1,10 @@
+operation,capability,owner,admin,editor,viewer,spec_ref
+tenant.context.read,tenants:context:read,Y,Y,Y,Y,"D-08 (context probe; lab addition)"
+project.list,projects:read,Y,Y,Y,Y,"spec s5 read project / s6 list"
+project.read,projects:read,Y,Y,Y,Y,"spec s5 read project"
+project.create,projects:create,Y,Y,Y,N,"spec s5 create project: editor/admin/owner"
+project.write,projects:write,Y,Y,Y,N,"spec s5 update project: editor/admin/owner"
+invoice.read,invoices:read,Y,Y,Y,Y,"spec s5 read invoice: viewer+"
+contact.private.read,contacts:private:read,Y,Y,N,N,"spec s5 export private contact: admin/owner"
+member.role.write,members:write,Y,N,N,N,"spec s5 change membership: owner only"
+audit.read,audit:read,Y,Y,N,N,"spec s6 audit: owner/admin read"
