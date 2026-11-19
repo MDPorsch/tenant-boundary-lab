@@ -1,9 +1,9 @@
 # Architecture
 
-Status: **M1.** Implemented: the oracle data and loaders, fixtures, error schema and harness (M0);
-settings, token verifier, database layer (models, migration `0001`, seed), route registry, gate
-pipeline and the `/me` handler (M1). Not yet built: the other handlers (M2), the vulnerable variant
-(M3), the runner and oracle engine (M4), PostgreSQL concurrency and CI (M5).
+Status: **M2.** Implemented: the oracle data and loaders, fixtures, error schema and harness (M0);
+settings, token verifier, database layer, route registry and gate pipeline (M1); the patched API:
+all ten handlers, request parsing, paging, atomic write statements and audit (M2). Not yet built:
+the vulnerable variant (M3), the runner and oracle engine (M4), PostgreSQL concurrency and CI (M5).
 
 ## 1. Components
 
@@ -42,7 +42,9 @@ src/tenantlab/
   db/                        engine.py, models.py, migrate.py, seed.py, migrations/ (M1)
   api/                       app.py, routes.py, gates.py, middleware.py, problems.py,
                              handlers.py                                              (M1)
-  lab/patched/ lab/vulnerable/                                        (M2 / M3)
+  lab/patched/               schemas.py (strict requests, response models), paging.py,
+                             service.py (bounded reads, authority-checking writes)    (M2)
+  lab/vulnerable/                                                                     (M3)
   runner/  cli.py                                                     (M4)
 ```
 
@@ -60,10 +62,11 @@ membership, tenant state, resource scope, role/capability, market permit, input 
 state preconditions, action, audit. A request is denied at the first failing gate and every
 non-2xx response is a `ProblemDetail`.
 
-Implemented in M1: gates 0-6 and the query-name part of gate 8, for every route in
+Gates 0-6 and the query-name part of gate 8 run for every route in
 `api/routes.py` (the registry is the only way a route is mounted, so a route cannot skip a gate).
-Gates 7 and 9-11 need a request body and arrive with the handlers in M2. The request body is never
-read by the gates.
+Gates 7-11 run inside the handlers (M2), because they need the body: media type and syntax, market
+permit (create), body validation, quota, then one write statement that re-checks authority, with
+the version and last-owner preconditions (gates 10-11). The request body is never read by gates 1-6.
 
 Cross-cutting rules: the server re-reads authority from the database on every request (no
 authorization cache); request bodies are parsed only after the capability gate; the server

@@ -203,8 +203,8 @@ MUTANTS = {
     "me_leaks_extra_field": [
         (
             H,
-            'return JSONResponse(body.model_dump(mode="json"))',
-            'return JSONResponse({**body.model_dump(mode="json"), "email": "leak"})',
+            'return _json(body.model_dump(mode="json"))',
+            'return _json({**body.model_dump(mode="json"), "email": "leak"})',
         )
     ],
     "viewer_may_write_projects": [
@@ -216,8 +216,8 @@ MUTANTS = {
     "body_parsed_before_auth": [
         (
             A,
-            "    def endpoint(request: Request) -> Response:",
-            "    async def endpoint(request: Request) -> Response:\n        import json\n\n        raw = await request.body()\n        if raw:\n            try:\n                json.loads(raw)\n            except ValueError:\n                raise ApiProblem(ErrorCode.REQUEST_INVALID) from None",
+            "        allowed = await run_in_threadpool(run_gates, request, spec, deps)",
+            "        import json\n\n        raw = await request.body()\n        if raw:\n            try:\n                json.loads(raw)\n            except ValueError:\n                raise ApiProblem(ErrorCode.REQUEST_INVALID) from None\n        allowed = await run_in_threadpool(run_gates, request, spec, deps)",
         )
     ],
     "401_detail_reveals_reason": [
@@ -383,7 +383,8 @@ def run_one(work: Path, edits: list[tuple[str, str, str]]) -> tuple[str, str]:
     return ("KILLED" if result.returncode != 0 else "SURVIVED"), tail
 
 
-def main() -> int:
+def main(mutants: dict[str, list[tuple[str, str, str]]] | None = None) -> int:
+    mutants = MUTANTS if mutants is None else mutants
     counts = {"KILLED": 0, "SURVIVED": 0, "NOAPPLY": 0}
     with tempfile.TemporaryDirectory(prefix="tenantlab-mutation-") as scratch:
         # A mutant only counts as killed if the UNMUTATED suite passes: otherwise every mutant
@@ -395,12 +396,12 @@ def main() -> int:
             print(f"BASELINE NOT GREEN ({verdict}): {info}\nrefusing to run mutants")  # noqa: T201
             return 2
         print(f"baseline green | {info}", flush=True)  # noqa: T201
-        for name, edits in MUTANTS.items():
+        for name, edits in mutants.items():
             verdict, info = run_one(Path(scratch) / "work", edits)
             counts[verdict] += 1
             print(f"{verdict:9} {name} | {info}", flush=True)  # noqa: T201
     print(  # noqa: T201
-        f"\nTOTAL {len(MUTANTS)}  killed {counts['KILLED']}  "
+        f"\nTOTAL {len(mutants)}  killed {counts['KILLED']}  "
         f"survived {counts['SURVIVED']}  noapply {counts['NOAPPLY']}"
     )
     if counts["NOAPPLY"]:

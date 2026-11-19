@@ -1,7 +1,7 @@
 # API contract
 
-Status: **M1.** The gate pipeline and `GET /v1/tenants/{tenant_id}/me` are implemented; every other
-route passes the gates and answers `501` until M2. Authoritative sources: this file for shapes and
+Status: **M2.** All ten routes are implemented (docs s10 gives the request and response shapes).
+Authoritative sources: this file for shapes and
 conventions; `src/tenantlab/oracle/data/gates.csv` for the ordered checks and their outcomes;
 `capabilities.csv` for who may do what; `field_policy.csv` for which fields appear where.
 Spec reference: `specifications/01_tenant_boundary_lab.md` s5-s6, shared standard s2.
@@ -27,8 +27,9 @@ Spec reference: `specifications/01_tenant_boundary_lab.md` s5-s6, shared standar
 ## 2. Routes
 
 Gates 0-6 (and 7 where applicable) are enforced for **every** route from M1 on (deny by default).
-Until M2 a request that passes all gates may reach a placeholder handler answering `501` with code
-`internal.error`; no M1 test depends on that response.
+Every request passes the same gates first; the handler runs only after them. (In M1 the
+nine data routes answered a placeholder `501`; that mechanism remains for a route marked
+not implemented in the registry.)
 
 | Method and path | Operation (capabilities.csv) | Notes | Handler milestone |
 |---|---|---|---|
@@ -140,7 +141,7 @@ reason_code, timestamp, correlation_id)`. Never contains tokens, bodies or priva
 Deviation from the shared standard (D-05): resource scope is evaluated **before** role, so a hidden
 object is a 404 for every role. The capability gate still precedes any body parsing or side effect.
 
-## 8. Implementation constraints (implemented in M1, guarded by tests)
+## 8. Implementation constraints (implemented, guarded by tests)
 
 * **Bodies are read after the gates.** FastAPI/Starlette parse JSON bodies *before* dependencies
   run, which would turn "anonymous + malformed JSON" into 422. The endpoint wrapper therefore takes

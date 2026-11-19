@@ -4,7 +4,7 @@ Scope: the Tenant Boundary Lab (an intentionally breakable lab, a patched implem
 independent oracle and a test runner), run **locally**, with **synthetic** data only. Out of scope:
 production systems, third-party targets, real customer tenancy, credential attacks, Internet scanning.
 
-Status at M1: the model was written before any route existed. Section 4a says which mitigations are
+Status at M2: the model was written before any route existed. Section 4a says which mitigations are
 now built and tested; those marked *(planned Mx)* in section 4 are still only specified.
 
 ## 1. Assets
@@ -82,7 +82,7 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 | T-19 | Runner misreports an infrastructure failure as a clean result | R | Distinct exit codes 0 clean / 1 violation / 2 infrastructure error; unavailable DB is an error, never a pass | *(planned M4)* |
 | T-20 | Dependency or supply-chain compromise | T | Lockfile with hashes, bounded ranges, `pip-audit`; CI pinning *(planned M5)* | `pip-audit` (run at M0) |
 
-## 4a. Implementation status (M1)
+## 4a. Implementation status (M2)
 
 | Threat | Status | Evidence |
 |---|---|---|
@@ -90,13 +90,18 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 | T-03 client-supplied authority | **Built** | TL-18 (headers, query, body, token claims) |
 | T-04, T-05 BOLA and existence oracle | **Built for tenants, projects, invoices** (gates 3, 5) | TL-03, TL-04, `test_m1_gate_pipeline.py` (market scope, invoice coherence, ghost-vs-hidden equality). Counts and timing: M2 / TL-19 |
 | T-06 stale authority | **Built** (re-read every request) | TL-03, TL-05, TL-14, market-access test |
-| T-07 BFLA | **Built at the gate** (gate 6, default deny); handlers in M2 | TL-05, TL-18, `test_app_policy_matches_oracle.py` |
-| T-13 audit poisoning, pre-auth flooding | **Built** (tenant NULL rule, no pre-auth rows); authenticated flooding is residual (L-05) | TL-01..04, `test_m1_gate_pipeline.py` |
-| T-15 oracle collusion | **Built both ways** (D-21) | `test_oracle_independence.py`, `test_app_independence.py` |
-| T-16 committed secrets | **Partly** (no key on disk; no scanner run, L-12) | `test_settings.py` (private key refused and not echoed) |
-| T-17 resource exhaustion | **Partly** (body cap only; L-15, L-19) | `test_m1_gate_pipeline.py`, `test_middleware.py` |
+| T-07 BFLA | **Built** (gate 6 for every route, default deny; app table equals the oracle) | TL-05, TL-06, TL-11, TL-18, `test_app_policy_matches_oracle.py` |
+| T-08 BOPLA | **Built** (private fields on one surface; 403 not a stripped 200; field sets equal the oracle) | TL-09 over every surface and role, `test_m2_operations.py` |
+| T-09 mass assignment | **Built** (strict models, unknown keys 422, owner and tenant server-set) | TL-06 (every server-owned field on every body route), TL-15 |
+| T-10 parent/child confusion | **Built** (invoice resolved through the path project and the same tenant) | TL-07, `test_m1_gate_pipeline.py` |
+| T-11 write-then-deny | **Partly**: every check precedes the write and denials leave all business tables identical; the runner's before/after diff is M4 | TL-06, TL-08, TL-10, TL-15, TL-17 *(planned M4)* |
+| T-12 lost update and races | **Built for SQLite**: version compare-and-set; authority, quota and last owner re-checked inside the write statement; PostgreSQL proof is M5 | TL-11, TL-12, `test_m2_races.py`, `test_patched_service.py` |
+| T-13 audit poisoning, pre-auth flooding | **Built** (tenant NULL rule, no pre-auth rows, allow rows atomic with the change); authenticated flooding is residual (L-05) | TL-01..04, `test_m1_gate_pipeline.py`, `test_m2_operations.py` |
+| T-15 oracle collusion | **Built both ways** (D-21, now including `lab/patched`) | `test_oracle_independence.py`, `test_app_independence.py` |
+| T-16 committed secrets | **Partly** (no key on disk; no scanner run, L-12) | `test_settings.py` |
+| T-17 resource exhaustion | **Mostly**: body cap, limit 1..100, cursor cap, quota 1 000, embedded contacts 100, statement ceiling independent of data; no rate limit (L-19) | TL-10, TL-15, `test_m2_input.py` |
 | T-18 log injection | **Built** (server-generated ids; fixed log fields; no token/body in logs) | TL-18, log tests |
-| T-08..T-12, T-14, T-19, T-20 | Not yet (M2-M5) | n/a |
+| T-14, T-19, T-20 | Not yet (M3-M5) | n/a |
 
 ## 5. Explicit non-goals and caveats
 
@@ -106,8 +111,9 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 * In-process ASGI proves application logic, not network-layer defenses (TLS, proxies, WAF).
 * A passing test suite shows the listed cases pass. It is not proof of security.
 
-## 6. Open risks at M1
+## 6. Open risks at M2
 
-See `LIMITATIONS.md`. The most important: only the gates exist, so nothing yet shows the data-bearing
-handlers are safe (M2); the M1 additions D-24, D-25, D-26 and D-28 in `DECISIONS.md` are marked
-"owner approval" and have not yet been approved; no SAST or secret scanner has been run (L-12).
+See `LIMITATIONS.md`. The most important: concurrency is proven only on SQLite (the statements are
+written to be race-safe, but PostgreSQL row-lock behaviour is M5, L-08, L-22); there is no vulnerable
+variant, runner or CI yet; the M2 decisions D-31, D-32, D-34, D-37 and D-38 in `DECISIONS.md` are
+marked "owner approval" and are not yet approved; no SAST or secret scanner has been run (L-12).

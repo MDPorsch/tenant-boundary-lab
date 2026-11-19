@@ -4,6 +4,25 @@ All notable changes are recorded here. Pre-release; no version has been tagged.
 
 ## [Unreleased]
 
+### M2: the patched API
+
+- All ten routes implemented behind the M1 gates: project list/create/read/patch, private contacts,
+  invoices (plain and nested), membership update, tenant audit log. Contract first: request and
+  response shapes in `docs/api-contract.md` s10, decisions D-30..D-39.
+- `lab/patched/`: strict request parsing (media type, UTF-8, duplicate keys, NaN, strict types,
+  title rules), response models that forbid extra fields, keyset paging, bounded reads (statement
+  count independent of the data), and **write statements that carry their own authority, quota,
+  version and last-owner predicates**. A change and its `allow` audit row commit together.
+- Failure behaviour: a lost race is retried at most 3 times with the gates re-run (404/403/409/429
+  as the truth now is), then 503; any database failure, including a failed audit write, is 503.
+- 446 tests added (1081 total, all green, 99% coverage of `src`): 356 written red first, then races
+  between a handler's pre-check and its write, and each write statement on its own.
+- Case catalog: TL-06..13, 15 and 19 are `green` (TL-12's PostgreSQL part is M5).
+- `tools/mutation_m2.py`: 49 injected bugs, all caught; `tools/mutation_m1.py` re-run on the final tree.
+- Changed M1 tests on purpose: the "no GET writes audit" control now allows the audited private
+  contact read; the registry tests expect every route implemented.
+- `gates.csv`: gate 10 (stale precondition) also covers the membership `version`.
+
 ### M1: identity and deny-by-default gates
 
 - Settings (public material only), strict UUID parsing, EdDSA-only token verifier (decision D-03
