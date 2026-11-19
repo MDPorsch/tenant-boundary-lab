@@ -393,14 +393,14 @@ def main(mutants: dict[str, list[tuple[str, str, str]]] | None = None) -> int:
         if (
             verdict != "SURVIVED"
         ):  # "SURVIVED" here means: nothing failed, i.e. the baseline is green
-            print(f"BASELINE NOT GREEN ({verdict}): {info}\nrefusing to run mutants")  # noqa: T201
+            print(f"BASELINE NOT GREEN ({verdict}): {info}\nrefusing to run mutants")
             return 2
-        print(f"baseline green | {info}", flush=True)  # noqa: T201
+        print(f"baseline green | {info}", flush=True)
         for name, edits in mutants.items():
             verdict, info = run_one(Path(scratch) / "work", edits)
             counts[verdict] += 1
-            print(f"{verdict:9} {name} | {info}", flush=True)  # noqa: T201
-    print(  # noqa: T201
+            print(f"{verdict:9} {name} | {info}", flush=True)
+    print(
         f"\nTOTAL {len(mutants)}  killed {counts['KILLED']}  "
         f"survived {counts['SURVIVED']}  noapply {counts['NOAPPLY']}"
     )

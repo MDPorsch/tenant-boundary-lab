@@ -34,6 +34,7 @@ uv run pytest -m milestone -q          # only the tests written red-first for M1
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 uv run python tools/mutation_m1.py     # optional, ~6 min: inject 69 security bugs, expect all caught
 uv run python tools/mutation_m2.py     # optional, ~5 min: 49 more, in the patched API
+uv run python tools/secret_scan.py     # optional: gitleaks over all history + tree (brew install gitleaks)
 ```
 
 A test marked `milestone("M1")` was written *before* its code and failed with
@@ -65,7 +66,7 @@ test enforces that the oracle imports no enforcement code.
 | Schema, Alembic migration `0001`, deterministic seed | `src/tenantlab/db/` |
 | Contract and unit tests | `tests/unit/` |
 | Behavioural tests for TL-01..15, 18, 19 (M1 and M2 cases) | `tests/negative/test_m1_*.py`, `tests/negative/test_m2_*.py` |
-| Mutation checks | `tools/mutation_m1.py`, `tools/mutation_m2.py` |
+| Mutation checks, secret scan | `tools/mutation_m1.py`, `tools/mutation_m2.py`, `tools/secret_scan.py` |
 | Design | [docs/architecture.md](docs/architecture.md), [docs/threat-model.md](docs/threat-model.md), [docs/authorization-matrix.md](docs/authorization-matrix.md), [docs/api-contract.md](docs/api-contract.md), [docs/test-matrix.md](docs/test-matrix.md) |
 | Decisions and residual risk | [DECISIONS.md](DECISIONS.md), [LIMITATIONS.md](LIMITATIONS.md) |
 
@@ -75,7 +76,7 @@ test enforces that the oracle imports no enforcement code.
 |---|---|
 | **M0** (done, approved) | Contracts, oracle data, fixtures, threat model, failing tests. |
 | **M1** (done, approved) | Schema and migrations, seeds, token verifier, deny-by-default gates (TL-01..05, 14, 18) |
-| **M2** (this, awaiting review) | Patched API: projects, invoices, contacts, membership, field projection, audit (TL-06..13, 15, 19) |
+| **M2** (done, approved) | Patched API: projects, invoices, contacts, membership, field projection, audit (TL-06..13, 15, 19) |
 | M3 | Deliberately vulnerable lab with four controlled flaws, isolation guard (TL-16) |
 | M4 | Runner, oracle engine, state diff, reports, exit codes 0/1/2 (TL-17) |
 | M5 | PostgreSQL concurrency, Hypothesis properties, pinned CI, dependency/secret/SAST gates (TL-12, TL-20) |

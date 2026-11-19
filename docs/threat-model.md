@@ -98,7 +98,7 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 | T-12 lost update and races | **Built for SQLite**: version compare-and-set; authority, quota and last owner re-checked inside the write statement; PostgreSQL proof is M5 | TL-11, TL-12, `test_m2_races.py`, `test_patched_service.py` |
 | T-13 audit poisoning, pre-auth flooding | **Built** (tenant NULL rule, no pre-auth rows, allow rows atomic with the change); authenticated flooding is residual (L-05) | TL-01..04, `test_m1_gate_pipeline.py`, `test_m2_operations.py` |
 | T-15 oracle collusion | **Built both ways** (D-21, now including `lab/patched`) | `test_oracle_independence.py`, `test_app_independence.py` |
-| T-16 committed secrets | **Partly** (no key on disk; no scanner run, L-12) | `test_settings.py` |
+| T-16 committed secrets | **Built locally**: no key on disk; gitleaks finds nothing in history or tree, and a canary proves the scanner works; CI gate is M5 (L-12) | `tools/secret_scan.py`, `test_settings.py` |
 | T-17 resource exhaustion | **Mostly**: body cap, limit 1..100, cursor cap, quota 1 000, embedded contacts 100, statement ceiling independent of data; no rate limit (L-19) | TL-10, TL-15, `test_m2_input.py` |
 | T-18 log injection | **Built** (server-generated ids; fixed log fields; no token/body in logs) | TL-18, log tests |
 | T-14, T-19, T-20 | Not yet (M3-M5) | n/a |

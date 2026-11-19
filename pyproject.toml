@@ -65,7 +65,7 @@ ignore = ["PLR2004"]  # magic values are normal in test assertions
 # assert is the point of a test; the harness hand-crafts hostile tokens.
 "tests/**" = ["S101", "S105", "S106", "PLR0913"]
 # Developer tooling: long one-line patches are the point; it runs subprocesses on purpose.
-"tools/**" = ["E501", "PLR0913"]
+"tools/**" = ["E501", "PLR0913", "T201"]  # command-line tools print by design
 
 # ------------------------------------------------------------------ mypy ----
 [tool.mypy]
