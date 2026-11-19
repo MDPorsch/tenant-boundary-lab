@@ -247,7 +247,41 @@ provide, and the documentation will say so plainly.
 | Tool failure reported as success | exit code `2` for everything that is not clean; infrastructure errors are never `0` |
 | Supply chain (dependencies, release) | locked, hash-pinned dependencies, `pip-audit` and secret scan in CI, trusted publishing only after owner approval |
 
-## 12. DECISIONS NEEDED FROM YOU (this is the review checkpoint)
+## 12. DECISIONS (answered by the owner on 2026-11-19)
+
+| # | Decision | Answer |
+|---|---|---|
+| 1 | Repository shape | **Approved:** `boundarycheck` is its own repository, with `tenant-boundary-lab` as its reference target and fixture. Creating the GitHub repository still needs a separate "yes" at the moment it is created (addendum s8); work starts in a local directory. |
+| 2 | M4 plan change | **Approved:** the lab's M4 runner and oracle engine is built once, as `boundarycheck`; the lab's demo becomes a thin client of it. |
+| 3 | Ordering | **Approved:** lab milestone M3 (with isolation review) first, then the `boundarycheck` engine. |
+| 4 | Live transport | **Resolved by me (the owner asked "what is best, I want it easy to use"):** v0.1 ships the fixture transport **plus a loopback-only live transport** (s12.1). Remote hosts are v0.2. The owner may overrule. |
+| 5 | Config and credentials | **Approved:** YAML with the hardened loader (s5.2); credentials from environment variables always, OS keychain as an optional extra. |
+| 6 | Exit semantics | **Approved:** `0` only when every case is `no_issue_observed`. |
+| 7 | Name | **Approved:** `boundarycheck` (re-check availability before any publication). |
+| 8 | Licence | **Still open** (D-16). Needed before any public release, not before development; the repositories stay private. |
+
+### 12.1 Live transport, resolved: easy AND safe
+
+The common case is a developer testing the API they run on their own machine or as a CI service
+container, which is always on loopback. So v0.1 live mode is **loopback-only**:
+
+* One command: `boundarycheck test --live` against `http://127.0.0.1:PORT` (or `[::1]`, or a name that
+  resolves only to loopback). No per-run attestation flag: loopback traffic cannot leave the machine.
+* Enforced by the tool, not by convention: the **connected peer** must be a loopback address (checked
+  after connect, which also defeats DNS rebinding); a redirect to any other host is `policy_denied`;
+  `GET`/`HEAD` only; request budget and rate limit; `trust_env=False` (no proxy variables); size and
+  time caps.
+* A remote host in the config is **refused with a message that says exactly what v0.2 will require**,
+  not silently ignored and not allowed.
+* Ease of use that stays safe: `boundarycheck plan` prints every request it would send (a dry run, the
+  default for `init` output) and `boundarycheck init --from-openapi FILE` drafts the actions from an
+  OpenAPI document the user already has, leaving the policy for the assessor to write.
+* v0.2 adds allowlisted remote hosts with the attestation, DNS-rebinding, IPv6 and metadata-address
+  rules of s9, and an interactive "this will contact these hosts as these users" confirmation
+  (`--yes` for CI).
+
+## 12a. The questions as originally asked
+
 
 1. **Repository shape.** Recommended: start `boundarycheck` as its **own repository** (separate
    packaging, README, SECURITY.md, versioning, issue tracker), with `tenant-boundary-lab` as its
