@@ -71,9 +71,9 @@ id = "TL-06"
 title = "Viewer PATCH, admin endpoint, field overposting"
 owasp = ["API5:2023", "API3:2023"]
 milestones = ["M2"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m2_authorization.py"]
 expected = "bob PATCH of PA1 is 403; editor/viewer on audit and contacts routes is 403; PATCH/POST bodies carrying tenant_id, owner_principal_id, market, id or role are 422 request.invalid; business tables identical before/after."
 
 [[cases]]
@@ -81,9 +81,9 @@ id = "TL-07"
 title = "Project A id with invoice B id in a nested route"
 owasp = ["API1:2023"]
 milestones = ["M2"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m2_authorization.py"]
 expected = "GET /v1/projects/{PA1}/invoices/{IB1} and /v1/projects/{PB1}/invoices/{IA1} are 404 indistinguishable from never-seeded ids; a deliberately incoherent invoice (invoice.tenant != project.tenant, injected by the test) is never served. Business tables unchanged apart from the test's own injected incoherent row."
 
 [[cases]]
@@ -91,9 +91,9 @@ id = "TL-08"
 title = "Cross-market access within the same tenant"
 owasp = ["API1:2023"]
 milestones = ["M2"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m2_authorization.py"]
 expected = "alice (tenant A owner) gets 404 for PA2 (US), its contacts and invoice IA2 on read and write; creating a project in US is 403 authz.market_denied; PA2 absent from lists and from totals; no sentinel of PA2 or CA2 anywhere. Business tables unchanged: a denied write leaves the row identical."
 
 [[cases]]
@@ -101,9 +101,9 @@ id = "TL-09"
 title = "Property-level leakage via response, pagination, export, error"
 owasp = ["API3:2023"]
 milestones = ["M2"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m2_properties.py"]
 expected = "For every surface in field_policy.csv, fields appear only on their listed surfaces to roles at or above read_min_role; SENTINEL-PRIV and *.invalid emails never appear in project list/detail, invoice, audit, error bodies or contacts for editor/viewer (403 not a stripped 200). Business tables unchanged."
 
 [[cases]]
@@ -111,9 +111,9 @@ id = "TL-10"
 title = "Hostile pagination and identifier input"
 owasp = ["API4:2023"]
 milestones = ["M2"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m2_input.py"]
 expected = "limit=0/-1/101/abc, oversized or malformed cursor, page=-1 (unknown parameter), invalid UUID path ids all give 422 request.invalid with no echo of the input; work is bounded (a statement-count ceiling per request). Business tables unchanged."
 
 [[cases]]
@@ -121,9 +121,9 @@ id = "TL-11"
 title = "Last owner removes themselves"
 owasp = ["API5:2023"]
 milestones = ["M2"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m2_membership_revisions.py"]
 expected = "alice (sole active owner of A) demoting or revoking her own membership is 409 conflict.last_owner; membership rows identical before/after (atomic); a non-owner PUT on any membership is 403 including self-promotion."
 
 [[cases]]
@@ -131,9 +131,9 @@ id = "TL-12"
 title = "Two writers use the same row_version"
 owasp = ["n/a"]
 milestones = ["M2", "M5"]
-state = "planned"
+state = "red"
 mutation_allowed = true
-test_modules = []
+test_modules = ["tests/negative/test_m2_membership_revisions.py"]
 expected = "Exactly one PATCH returns 200 with row_version+1; the other 409 conflict.stale_revision; final row equals the winner. M2: sequential stale write on SQLite. M5: truly concurrent on PostgreSQL (SQLite cannot represent row-lock behaviour)."
 
 [[cases]]
@@ -141,9 +141,9 @@ id = "TL-13"
 title = "Membership revoked between list and object read"
 owasp = ["API1:2023"]
 milestones = ["M2"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m2_authorization.py"]
 expected = "bob lists projects (200); after the membership row is revoked in the DB, GET of the same project is 404 on the very next request; nothing is served from a cache. Business tables unchanged apart from the test's own revocation."
 
 [[cases]]
@@ -161,9 +161,9 @@ id = "TL-15"
 title = "UTF-8, overlong fields, unknown keys, type confusion"
 owasp = ["API3:2023", "API4:2023"]
 milestones = ["M2"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m2_input.py"]
 expected = "Unknown JSON keys, title above 120 chars, NUL/control characters, invalid UTF-8, row_version given as a string, nested objects where scalars are expected: 422 request.invalid with no input echo; body above 65536 bytes: 413 request.too_large before authentication. Business tables unchanged."
 
 [[cases]]
@@ -201,9 +201,9 @@ id = "TL-19"
 title = "List totals and timing reveal hidden data"
 owasp = ["API1:2023", "API3:2023"]
 milestones = ["M2"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m2_properties.py"]
 expected = "The list total equals the number of objects the actor may read; adding rows to another tenant or to a hidden market never changes it. Timing: only a gross-difference smoke check; constant-time behaviour is explicitly NOT claimed (LIMITATIONS). Business tables unchanged."
 
 [[cases]]

@@ -79,16 +79,18 @@ def test_cases_with_tests_have_real_test_functions_that_name_them(
         assert found, f"{case.id}: no test function starting with {prefix!r}"
 
 
-# Milestones whose code has shipped. Update this ONE line when a milestone is completed; the
-# test below then forces the catalog, the docs and the case states to move with it.
+# Lifecycle: planned -> red (tests written first, code not built) -> green (tests pass).
+# SHIPPED milestones are green; IN_PROGRESS ones are red; the rest are planned. Update these two
+# lines when a milestone starts and when it ships; the test below then forces the catalog and the
+# docs to move with them.
 SHIPPED = {"M1"}
+IN_PROGRESS = {"M2"}
 
 
-def test_cases_of_shipped_milestones_are_green_and_later_ones_are_planned(
-    cases: dict[str, CatalogCase],
-) -> None:
+def test_cases_follow_the_milestone_lifecycle(cases: dict[str, CatalogCase]) -> None:
     for cid, case in cases.items():
-        expected = "green" if FIRST_MILESTONE[cid] in SHIPPED else "planned"
+        first = FIRST_MILESTONE[cid]
+        expected = "green" if first in SHIPPED else "red" if first in IN_PROGRESS else "planned"
         assert case.state == expected, (
             f"{cid}: first milestone {FIRST_MILESTONE[cid]}, state {case.state!r}, "
             f"expected {expected!r}"
