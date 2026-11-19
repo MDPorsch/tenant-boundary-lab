@@ -72,7 +72,7 @@ test enforces that the oracle imports no enforcement code.
 | Milestone | Delivers |
 |---|---|
 | **M0** (done, approved) | Contracts, oracle data, fixtures, threat model, failing tests. |
-| **M1** (this, awaiting review) | Schema and migrations, seeds, token verifier, deny-by-default gates (TL-01..05, 14, 18) |
+| **M1** (done, approved) | Schema and migrations, seeds, token verifier, deny-by-default gates (TL-01..05, 14, 18) |
 | M2 | Patched API: projects, invoices, contacts, membership, field projection, audit (TL-06..13, 15, 19) |
 | M3 | Deliberately vulnerable lab with four controlled flaws, isolation guard (TL-16) |
 | M4 | Runner, oracle engine, state diff, reports, exit codes 0/1/2 (TL-17) |

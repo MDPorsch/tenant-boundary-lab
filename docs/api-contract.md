@@ -164,3 +164,69 @@ tenantlab.api.app.create_app(settings: Settings) -> ASGI application
 `postgresql+psycopg://...`) (D-15). The tests read table state with raw SQL using the table names in
 `specifications/01_tenant_boundary_lab.md` s4, and use `rowid` ordering for `audit_events` on
 SQLite (the PostgreSQL harness variant arrives with M5).
+
+## 10. Request and response shapes (M2)
+
+Written **before** the M2 tests and handlers; `tests/negative/test_m2_*.py` encode it. Surfaces are
+named as in `field_policy.csv`; a test compares every response with that file.
+
+### 10.1 Responses
+
+| Route | Success | Body |
+|---|---|---|
+| `GET /v1/tenants/{t}/projects` | 200 | page of `project.list_item`, ascending `id` |
+| `POST /v1/tenants/{t}/projects` | 201 | `project.detail` of the new project |
+| `GET /v1/projects/{p}` | 200 | `project.detail` |
+| `PATCH /v1/projects/{p}` | 200 | `project.detail` after the change (`row_version` + 1) |
+| `GET /v1/projects/{p}/contacts` | 200 | page of `contacts.private`, ascending `id` |
+| `GET /v1/invoices/{i}`, `GET /v1/projects/{p}/invoices/{i}` | 200 | `invoice.detail` |
+| `PUT /v1/tenants/{t}/members/{principal}` | 200 | `membership.detail` after the change (`version` + 1) |
+| `GET /v1/tenants/{t}/audit` | 200 | page of `audit.list_item`, newest first (descending `id`) |
+
+A **page** is `{"items": [...], "next_cursor": string or null, "total": integer}`. `total` is the
+number of objects the actor may read (a hidden-market project is not counted, D-14); `next_cursor`
+is null on the last page.
+
+| Surface | Fields | Floor |
+|---|---|---|
+| `project.list_item` | `id tenant_id market title status row_version` | viewer |
+| `project.detail` | the list item, plus `contacts` (at most 100 of `{id, public_name}`), plus `owner_principal_id` | viewer; `owner_principal_id` editor and above |
+| `contacts.private` | `id public_name email_private phone_private` | admin |
+| `invoice.detail` | `id tenant_id project_id amount_minor currency status` | viewer |
+| `membership.detail` | `principal_id tenant_id role status version` | owner |
+| `audit.list_item` | `id actor_id tenant_id action resource_type resource_id decision reason_code timestamp correlation_id` | admin |
+
+### 10.2 Requests
+
+Body rules (all body routes, decision D-30): `Content-Type: application/json`, a non-empty UTF-8 JSON
+**object**, no duplicate keys, no `NaN`/`Infinity`, strict types (a boolean is not an integer, a
+string is not a number), unknown keys rejected. The 422 body lists `{loc, code}` pairs only; an
+unknown key is reported as `{"loc": ["body"], "code": "unknown_field"}` and its name is never echoed.
+
+| Route | Body | Rules |
+|---|---|---|
+| `POST /v1/tenants/{t}/projects` | `{title, market}`, both required | `title` 1..120 code points, no control characters (`Cc`), no surrogates, no bidi override characters; `market` a string |
+| `PATCH /v1/projects/{p}` | `{title?, status?, row_version}` | at least one of `title`, `status`; `status` is `draft`, `active` or `archived`; `row_version` an integer 1..2147483647 equal to the stored value |
+| `PUT /v1/tenants/{t}/members/{principal}` | `{role, status, version}`, all required | `role` owner/admin/editor/viewer; `status` active/revoked; `version` an integer equal to the stored value; updates an **existing** membership only |
+
+Query (list routes `projects`, `contacts`, `audit`): `limit` is 1..100 written as plain ASCII digits
+without sign or padding (default 25); `cursor` is at most 256 characters of base64url. Anything else,
+a repeated parameter, or an unknown parameter is 422.
+
+### 10.3 Order of the remaining checks
+
+Gates 1-6 and the query names (M1), then: body media type and JSON syntax, **gate 7** (create only:
+a `market` the tenant may not use, or that does not exist, is `403 authz.market_denied`; evaluated
+when `market` is a string), **gate 8** body validation, **gate 9** quota (at most 1 000 projects per
+tenant, counting hidden-market projects, D-32), then the write. The write is **one statement that
+re-checks authority** (active membership with a capable role, active tenant, market permitted,
+quota, version) so a revocation that lands between the gates and the write cannot be overridden
+(D-35). If that statement changes no row, the gates are re-run to report the true reason; if none
+fails, **gate 10** (`409 conflict.stale_revision`) or **gate 11** (`409 conflict.last_owner`).
+
+### 10.4 Audit
+
+A successful `project.create`, `project.write`, `member.role.write` and `contact.private.read` writes
+one `allow` row, `reason_code` `ok`, in the **same transaction** as the change (a failed audit write
+rolls the change back). `resource_id` is the new project for a create. Other successful reads write
+nothing. Every denial from gate 7 on writes one `deny` row scoped to the tenant (D-10, D-37).

@@ -9,5 +9,5 @@ order,gate,applies_to,deny_condition,http_status,problem_code,audit,standard_ref
 7,market_permit,project.create,the requested market is not permitted for the tenant,403,authz.market_denied,tenant,s2 resource ownership/scope
 8,input_validation,requests with input,unknown/forbidden/overlong/mistyped property; invalid UUID; invalid pagination; unknown query parameter,422,request.invalid,tenant,s2 object property permission
 9,quota,project.create,per-tenant project quota exceeded,429,quota.exceeded,tenant,s2 rate/quota
-10,state_precondition,project.write,row_version precondition does not match the stored row_version,409,conflict.stale_revision,tenant,s2 action preconditions
+10,state_precondition,"project.write, member.role.write",the client's row_version (project) or version (membership) precondition does not match the stored value,409,conflict.stale_revision,tenant,s2 action preconditions
 11,state_invariant,member.role.write,the change would leave the tenant with no active owner,409,conflict.last_owner,tenant,s2 action preconditions

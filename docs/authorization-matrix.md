@@ -45,7 +45,7 @@ A request is denied at the **first** failing gate. Audit column: `none` = log on
 | 7 | `market_permit` | create in a market the tenant lacks | 403 `authz.market_denied` | tenant |
 | 8 | `input_validation` | unknown/forbidden/overlong/mistyped input, bad UUID/cursor/limit | 422 `request.invalid` | tenant |
 | 9 | `quota` | per-tenant quota exceeded | 429 `quota.exceeded` | tenant |
-| 10 | `state_precondition` | stale `row_version` | 409 `conflict.stale_revision` | tenant |
+| 10 | `state_precondition` | stale project `row_version` or membership `version` | 409 `conflict.stale_revision` | tenant |
 | 11 | `state_invariant` | would remove the last active owner | 409 `conflict.last_owner` | tenant |
 
 Why scope (5) runs before role (6): see DECISIONS D-05.
