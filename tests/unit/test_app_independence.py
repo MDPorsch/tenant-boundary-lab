@@ -13,7 +13,7 @@ import pytest
 import tenantlab
 
 PACKAGE_ROOT = Path(next(iter(tenantlab.__path__)))
-ENFORCEMENT_PACKAGES = ("api", "auth", "db")
+ENFORCEMENT_PACKAGES = ("api", "auth", "db", "lab/patched")
 FORBIDDEN_PREFIXES = ("tenantlab.oracle", "tenantlab.lab.vulnerable", "tenantlab.runner")
 
 

@@ -35,7 +35,8 @@ class RouteSpec:
     target_param: str  # the path parameter naming the audited resource (the audit `resource_id`)
     path_params: tuple[str, ...]
     query_params: frozenset[str] = frozenset()  # anything else is rejected (422)
-    implemented: bool = False  # False: passes the gates, then answers 501 (until M2)
+    has_body: bool = False  # the handler reads a JSON body (only AFTER the gates, D-18)
+    implemented: bool = True  # False: passes the gates, then answers 501
 
 
 _PAGING: Final = frozenset({"limit", "cursor"})
@@ -43,7 +44,7 @@ _PAGING: Final = frozenset({"limit", "cursor"})
 ROUTES: Final[tuple[RouteSpec, ...]] = (
     RouteSpec(
         "GET", "/v1/tenants/{tenant_id}/me", "tenant.context.read", "tenant",
-        Scope.TENANT, "tenant_id", ("tenant_id",), implemented=True,
+        Scope.TENANT, "tenant_id", ("tenant_id",),
     ),
     RouteSpec(
         "GET", "/v1/tenants/{tenant_id}/projects", "project.list", "tenant",
@@ -51,7 +52,7 @@ ROUTES: Final[tuple[RouteSpec, ...]] = (
     ),
     RouteSpec(
         "POST", "/v1/tenants/{tenant_id}/projects", "project.create", "tenant",
-        Scope.TENANT, "tenant_id", ("tenant_id",),
+        Scope.TENANT, "tenant_id", ("tenant_id",), has_body=True,
     ),
     RouteSpec(
         "GET", "/v1/projects/{project_id}", "project.read", "project",
@@ -59,11 +60,11 @@ ROUTES: Final[tuple[RouteSpec, ...]] = (
     ),
     RouteSpec(
         "PATCH", "/v1/projects/{project_id}", "project.write", "project",
-        Scope.PROJECT, "project_id", ("project_id",),
+        Scope.PROJECT, "project_id", ("project_id",), has_body=True,
     ),
     RouteSpec(
         "GET", "/v1/projects/{project_id}/contacts", "contact.private.read", "contact",
-        Scope.PROJECT, "project_id", ("project_id",),
+        Scope.PROJECT, "project_id", ("project_id",), _PAGING,
     ),
     RouteSpec(
         "GET", "/v1/invoices/{invoice_id}", "invoice.read", "invoice",
@@ -75,7 +76,7 @@ ROUTES: Final[tuple[RouteSpec, ...]] = (
     ),
     RouteSpec(
         "PUT", "/v1/tenants/{tenant_id}/members/{principal_id}", "member.role.write", "membership",
-        Scope.TENANT, "principal_id", ("tenant_id", "principal_id"),
+        Scope.TENANT, "principal_id", ("tenant_id", "principal_id"), has_body=True,
     ),
     RouteSpec(
         "GET", "/v1/tenants/{tenant_id}/audit", "audit.read", "audit",

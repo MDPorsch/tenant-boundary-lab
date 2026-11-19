@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Final
@@ -13,7 +13,7 @@ from uuid import UUID
 
 from starlette.responses import JSONResponse
 
-from tenantlab.schemas.errors import PROBLEM_MEDIA_TYPE, ErrorCode, ProblemDetail
+from tenantlab.schemas.errors import PROBLEM_MEDIA_TYPE, ErrorCode, FieldError, ProblemDetail
 
 
 @dataclass(frozen=True, slots=True)
@@ -78,12 +78,14 @@ class ApiProblem(Exception):
         status: int | None = None,
         detail: str | None = None,
         headers: Mapping[str, str] | None = None,
+        errors: Sequence[FieldError] = (),
     ) -> None:
         super().__init__(code.value)
         self.code = code
         self.status = status if status is not None else PROBLEMS[code].status
         self.detail = detail if detail is not None else PROBLEMS[code].detail
         self.headers = dict(headers or {})
+        self.errors = tuple(errors)
 
 
 def problem_response(request_id: UUID, problem: ApiProblem) -> JSONResponse:
@@ -95,6 +97,7 @@ def problem_response(request_id: UUID, problem: ApiProblem) -> JSONResponse:
         code=problem.code,
         detail=problem.detail,
         request_id=request_id,
+        errors=problem.errors,
     ).model_dump(mode="json")
     return JSONResponse(
         body,

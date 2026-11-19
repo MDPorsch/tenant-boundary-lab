@@ -7,6 +7,7 @@ weakened. Expected outcomes: docs/api-contract.md s10 and the case catalog.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable
 from typing import Any
 
@@ -111,12 +112,28 @@ async def test_tl06_server_owned_fields_in_a_body_are_422_and_change_nothing(
     )
     problem = assert_problem(response, status=422, code="request.invalid")
     assert marker not in response.text, "the value was echoed"
-    assert extra_key not in response.text, "the key name was echoed"
+    # structural, not textual: "id" and "status" appear in every problem body by design
+    assert extra_key not in json.dumps(problem["errors"]), "the key name was echoed"
     assert problem["errors"] == [{"loc": ["body"], "code": "unknown_field"}]
     assert_single_deny_audit(
         lab, before, response, actor=lab.fx.principal("alice").id, tenant=lab.fx.tenant("A").id,
         action=action, resource_type=resource_type, reason_code="request.invalid",
     )  # fmt: skip
+
+
+async def test_tl06_several_unknown_keys_are_reported_once_and_none_by_name(
+    open_lab: OpenLab,
+) -> None:
+    lab: Lab = await open_lab()
+    method, path, _, _, body = body_routes(lab)["patch"]
+    response = await lab.request(
+        method,
+        path,
+        headers=lab.bearer("alice"),
+        json_body={**body, "tenant_id": "x", "owner_principal_id": "y", "role": "owner"},
+    )
+    problem = assert_problem(response, status=422, code="request.invalid")
+    assert problem["errors"] == [{"loc": ["body"], "code": "unknown_field"}]
 
 
 async def test_tl06_the_owner_field_is_set_by_the_server_never_by_the_client(
@@ -242,6 +259,31 @@ async def test_tl08_creating_in_a_market_the_tenant_may_not_use_is_403_market_de
             lab, before, response, actor=lab.fx.principal("alice").id, tenant=tenant_a,
             action="project.create", resource_type="tenant", reason_code="authz.market_denied",
         )  # fmt: skip
+
+
+@pytest.mark.parametrize(
+    ("body", "status", "code"),
+    [
+        ({"title": "x" * 121, "market": "US"}, 403, "authz.market_denied"),  # gate 7 before gate 8
+        ({"title": "", "market": "XX"}, 403, "authz.market_denied"),
+        ({"title": "x" * 121, "market": "UK"}, 422, "request.invalid"),  # permitted: gate 8 speaks
+        ({"title": "ok", "market": 5}, 422, "request.invalid"),  # not a string: gate 8 speaks
+        ({"title": "ok"}, 422, "request.invalid"),
+    ],
+)
+async def test_tl08_gate_7_is_evaluated_before_body_validation(
+    open_lab: OpenLab, body: dict[str, Any], status: int, code: str
+) -> None:
+    """gates.csv order: market_permit (7) precedes input_validation (8) whenever `market` is a
+    string; a body that cannot be evaluated at gate 7 falls through to gate 8."""
+    lab: Lab = await open_lab()
+    response = await lab.request(
+        "POST",
+        f"/v1/tenants/{lab.fx.tenant('A').id}/projects",
+        headers=lab.bearer("alice"),
+        json_body=body,
+    )
+    assert_problem(response, status=status, code=code)
 
 
 async def test_tl08_a_nonexistent_market_looks_exactly_like_a_forbidden_one(

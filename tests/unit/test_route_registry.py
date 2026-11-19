@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pytest
@@ -62,7 +63,7 @@ def test_the_registry_equals_the_route_table_in_the_api_contract() -> None:
     assert set(registry) == set(contract)
     for key, (operation, milestone) in contract.items():
         assert registry[key].operation == operation, key
-        assert registry[key].implemented == (milestone == "M1"), key
+        assert registry[key].implemented == (milestone in {"M1", "M2"}), key  # built so far
 
 
 def test_every_oracle_operation_has_a_route_and_every_route_has_an_oracle_operation() -> None:
@@ -89,8 +90,44 @@ def test_registry_entries_are_internally_consistent() -> None:
         assert spec.method in {"GET", "POST", "PUT", "PATCH", "DELETE"}
 
 
-def test_only_the_context_probe_is_implemented_in_m1() -> None:
-    assert [r.operation for r in ROUTES if r.implemented] == ["tenant.context.read"]
+def test_every_registered_route_is_implemented_and_has_exactly_one_handler() -> None:
+    from tenantlab.api.handlers import HANDLERS  # noqa: PLC0415
+
+    assert all(r.implemented for r in ROUTES)  # M2: all ten routes have a real handler
+    assert set(HANDLERS) == {r.operation for r in ROUTES}
+
+
+def test_only_routes_that_read_a_body_say_so() -> None:
+    assert {(r.method, r.operation) for r in ROUTES if r.has_body} == {
+        ("POST", "project.create"),
+        ("PATCH", "project.write"),
+        ("PUT", "member.role.write"),
+    }
+
+
+async def test_a_route_marked_not_implemented_passes_the_gates_then_answers_501(
+    open_lab: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The 501 mechanism (used for unbuilt routes in M1) still works: gates first, then a
+    problem+json that is NOT audited."""
+    import dataclasses  # noqa: PLC0415
+
+    from tenantlab.api import app as app_module  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        app_module, "ROUTES", tuple(dataclasses.replace(r, implemented=False) for r in ROUTES)
+    )
+    lab = await open_lab()
+    path = f"/v1/tenants/{lab.fx.tenant('A').id}/me"
+    before = lab.snapshot()
+    response = await lab.request("GET", path, headers=lab.bearer("alice"))
+    problem = assert_problem(response, status=501, code="internal.error")
+    assert problem["detail"] == "This operation is not implemented in this milestone."
+    assert lab.snapshot() == before
+    denied = await lab.request("GET", path, headers=lab.bearer("bob"))  # bob passes too (viewer)
+    assert denied.status_code == 501
+    anonymous = await lab.request("GET", path)
+    assert_problem(anonymous, status=401, code="auth.token_invalid")  # the gates still come first
 
 
 def _mounted(app: object) -> set[tuple[str, str]]:

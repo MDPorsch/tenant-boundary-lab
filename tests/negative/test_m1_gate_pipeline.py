@@ -425,25 +425,36 @@ async def test_gate8_a_blank_valued_unknown_parameter_is_still_unknown(open_lab:
 
 
 # ============================================ positive controls: every GET route passes ====
-async def test_an_authorized_actor_passes_the_gates_of_every_get_route_and_writes_no_audit(
-    open_lab: OpenLab,
-) -> None:
-    """Anti-vacuity for all the denials above: a deny-everything pipeline would satisfy them."""
+async def test_an_authorized_actor_passes_the_gates_of_every_get_route(open_lab: OpenLab) -> None:
+    """Anti-vacuity for all the denials above: a deny-everything pipeline would satisfy them.
+
+    Ordinary reads write nothing (D-10). The one exception is the private-contact read, which is
+    audited (D-10, D-37; since M2 the route has a real handler): exactly one `allow` row."""
     lab: Lab = await open_lab()
     ids = _ids(lab)
-    before = lab.snapshot()
-    for path in (
+    ordinary = (
         f"/v1/tenants/{ids['A']}/me",
         f"/v1/tenants/{ids['A']}/projects",
         f"/v1/tenants/{ids['A']}/audit",
         f"/v1/projects/{ids['PA1']}",
-        f"/v1/projects/{ids['PA1']}/contacts",
         f"/v1/invoices/{ids['IA1']}",
         f"/v1/projects/{ids['PA1']}/invoices/{ids['IA1']}",
-    ):
+    )
+    before = lab.snapshot()
+    for path in ordinary:
         response = await lab.request("GET", path, headers=lab.bearer("alice"))
         assert response.status_code in PASSED_THE_GATES, (path, response.status_code, response.text)
-    assert lab.snapshot() == before, "allowed reads must not write (D-10)"
+    assert lab.snapshot() == before, "ordinary reads must not write (D-10)"
+
+    contacts = await lab.request(
+        "GET", f"/v1/projects/{ids['PA1']}/contacts", headers=lab.bearer("alice")
+    )
+    assert contacts.status_code in PASSED_THE_GATES, contacts.text
+    after = lab.snapshot()
+    assert after.business == before.business
+    assert [(r["action"], r["decision"]) for r in after.new_audit_rows(before)] == [
+        ("contact.private.read", "allow")
+    ]
 
 
 # ====================================================================== unknown routes ====

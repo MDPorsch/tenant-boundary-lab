@@ -102,6 +102,7 @@ BAD_CURSORS = {
     "decodes_to_text": _b64("hello"),
     "decodes_to_nothing_useful": "A" * 256,
     "decodes_to_an_integer_on_a_uuid_route": _b64("42"),
+    "decodes_to_non_ascii_bytes": "__4",  # base64url of 0xFF 0xFE
     "decodes_to_a_non_canonical_uuid": _b64("ABCDEF00-0000-4000-8000-000000000001"),
     "empty_value": "",
 }
@@ -111,6 +112,17 @@ BAD_CURSORS = {
 async def test_tl10_a_bad_cursor_is_422(open_lab: OpenLab, name: str) -> None:
     lab: Lab = await open_lab()
     await _assert_422_audited(lab, "projects", "?" + urlencode({"cursor": BAD_CURSORS[name]}))
+
+
+async def test_tl10_a_non_canonical_cursor_encoding_is_422(open_lab: OpenLab) -> None:
+    """'NDI' is the canonical base64url of '42'; 'NDJ' decodes to the same bytes (the spare bits
+    differ) but is a second spelling of one cursor. Exactly one spelling is accepted."""
+    lab: Lab = await open_lab()
+    path, _, _ = _list_routes(lab)["audit"]
+    insert_audit_rows(lab, tenant="A", count=3)
+    good = await lab.request("GET", f"{path}?cursor=NDI", headers=lab.bearer("alice"))
+    assert good.status_code == 200, good.text
+    await _assert_422_audited(lab, "audit", "?cursor=NDJ")
 
 
 async def test_tl10_a_cursor_of_the_wrong_kind_is_422(open_lab: OpenLab) -> None:
@@ -299,6 +311,20 @@ async def test_tl15_a_wrongly_typed_or_out_of_range_scalar_is_422(
     await _assert_body_rejected(lab, route, (NUMERIC_TEMPLATE[route] % value).encode())
 
 
+@pytest.mark.parametrize("route", ROUTES)
+@pytest.mark.parametrize("constant", ["NaN", "Infinity", "-Infinity"])
+async def test_tl15_non_finite_numbers_are_invalid_json_not_merely_a_wrong_type(
+    open_lab: OpenLab, route: str, constant: str
+) -> None:
+    """D-30: NaN and Infinity are not JSON. They are refused by the PARSER (`invalid_json`), so the
+    rejection does not depend on which field happens to be typed as a number."""
+    lab: Lab = await open_lab()
+    raw = (NUMERIC_TEMPLATE[route] % constant).encode()
+    response = await _send(lab, route, raw)
+    problem = assert_problem(response, status=422, code="request.invalid")
+    assert problem["errors"] == [{"loc": ["body"], "code": "invalid_json"}]
+
+
 BAD_TITLES = {
     "overlong_121": "ECHO9X" + "x" * 115,
     "empty": "",
@@ -433,6 +459,26 @@ async def test_tl15_a_body_above_65536_bytes_is_413_before_authentication(
         method, path, headers={**headers, "Content-Type": JSON}, content=b"x" * (SIXTY_FIVE_KIB + 1)
     )
     assert_problem(response, status=413, code="request.too_large")
+    assert lab.snapshot() == before
+
+
+async def test_tl15_an_anonymous_streamed_oversize_body_is_401_and_is_never_read(
+    open_lab: OpenLab,
+) -> None:
+    """D-23 / L-15: without a declared length the body is counted only when read, and it is read
+    only AFTER the gates, so an anonymous caller is refused first."""
+    lab: Lab = await open_lab()
+    method, path, _, _, _ = body_routes(lab)["patch"]
+
+    async def chunks() -> Any:
+        for _ in range(9):
+            yield b"x" * 8192
+
+    before = lab.snapshot()
+    response = await lab.client.request(
+        method, path, headers={"Content-Type": JSON}, content=chunks()
+    )
+    assert_problem(response, status=401, code="auth.token_invalid")
     assert lab.snapshot() == before
 
 

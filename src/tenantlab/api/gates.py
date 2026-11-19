@@ -23,7 +23,7 @@ Rules this module enforces:
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Final, NoReturn
@@ -47,7 +47,7 @@ from tenantlab.db.models import (
     TenantMarketAccess,
 )
 from tenantlab.ids import parse_uuid4
-from tenantlab.schemas.errors import ErrorCode
+from tenantlab.schemas.errors import ErrorCode, FieldError
 
 logger = logging.getLogger("tenantlab.gates")
 
@@ -185,6 +185,19 @@ def _authorize(db: Session, request: Request, spec: RouteSpec, caller: _Caller) 
         raise _Deny(ErrorCode.REQUEST_INVALID, None, None)
     target = ids[spec.target_param]
 
+    granted = _evaluate(db, spec, caller, ids)
+
+    # Gate 8 (query part): unknown or repeated query parameters are rejected, never ignored.
+    names = [name for name, _ in request.query_params.multi_items()]
+    if len(names) != len(set(names)) or not set(names) <= spec.query_params:
+        raise _Deny(ErrorCode.REQUEST_INVALID, granted.tenant_id, target)
+    return granted
+
+
+def _evaluate(db: Session, spec: RouteSpec, caller: _Caller, ids: dict[str, UUID]) -> _Granted:
+    """Gates 3-6 for already-parsed path ids. Used by the first pass AND by the re-check a
+    mutation runs inside its own transaction (D-35)."""
+    target = ids[spec.target_param]
     scope = _resolve_scope(db, spec, ids)
     if scope is None:
         raise _Deny(ErrorCode.RESOURCE_NOT_FOUND, None, target)
@@ -223,12 +236,6 @@ def _authorize(db: Session, request: Request, spec: RouteSpec, caller: _Caller) 
     role = parse_role(role_text)
     if role is None or not role_holds(spec.operation, role):
         raise _Deny(ErrorCode.AUTHZ_FORBIDDEN, scope.tenant_id, target)
-
-    # Gate 8 (query part): unknown or repeated query parameters are rejected, never ignored.
-    names = [name for name, _ in request.query_params.multi_items()]
-    if len(names) != len(set(names)) or not set(names) <= spec.query_params:
-        raise _Deny(ErrorCode.REQUEST_INVALID, scope.tenant_id, target)
-
     return _Granted(scope.tenant_id, role, ids)
 
 
@@ -280,3 +287,97 @@ def _record_denial(
         )
     )
     db.commit()
+
+
+# ------------------------------------------------- helpers for handlers (gates 7-11, audit) ----
+
+
+def _log_denial(allowed: Allowed, code: ErrorCode) -> None:
+    logger.info(
+        "request denied",
+        extra={
+            "event": "authz.denied",
+            "request_id": str(allowed.request_id),
+            "reason": code.value,
+            "route": f"{allowed.spec.method} {allowed.spec.path}",
+        },
+    )
+
+
+def deny(
+    deps: Deps,
+    db: Session,
+    allowed: Allowed,
+    code: ErrorCode,
+    *,
+    errors: Sequence[FieldError] = (),
+) -> NoReturn:
+    """End a request at gate 7 or later: discard anything pending, write ONE tenant-scoped denial
+    row in a clean transaction (the actor is an active member of the tenant), then raise."""
+    db.rollback()
+    db.add(
+        AuditEvent(
+            actor_id=allowed.principal_id,
+            tenant_id=allowed.tenant_id,
+            action=allowed.spec.operation,
+            resource_type=allowed.spec.resource_type,
+            resource_id=allowed.path_ids[allowed.spec.target_param],
+            decision="deny",
+            reason_code=code.value,
+            timestamp=deps.clock(),
+            correlation_id=allowed.request_id,
+        )
+    )
+    db.commit()
+    _log_denial(allowed, code)
+    raise ApiProblem(code, errors=errors)
+
+
+def reauthorize(deps: Deps, db: Session, allowed: Allowed) -> Allowed:
+    """Re-run gates 2-6 inside the caller's own transaction, right before a write. If a gate now
+    fails (revocation, suspension, downgrade, market change since the first pass) the denial is
+    recorded and raised; otherwise the freshly read role replaces the old one."""
+    status = db.scalar(select(Principal.status).where(Principal.id == allowed.principal_id))
+    caller = _Caller(allowed.principal_id, status or "missing", allowed.request_id)
+    try:
+        if caller.status != "active":
+            raise _Deny(
+                ErrorCode.AUTH_PRINCIPAL_DISABLED,
+                None,
+                allowed.path_ids[allowed.spec.target_param],
+            )
+        granted = _evaluate(db, allowed.spec, caller, allowed.path_ids)
+    except _Deny as denied:
+        db.rollback()
+        _record_denial(db, allowed.spec, caller, denied, deps.clock())
+        _log_denial(allowed, denied.code)
+        raise ApiProblem(denied.code) from None
+    return Allowed(
+        allowed.principal_id, granted.tenant_id, granted.role, allowed.request_id, allowed.spec,
+        allowed.path_ids,
+    )  # fmt: skip
+
+
+def record_allow(
+    deps: Deps,
+    db: Session,
+    allowed: Allowed,
+    *,
+    resource_type: str | None = None,
+    resource_id: UUID | None = None,
+) -> None:
+    """Add the `allow` audit row to the CALLER's transaction. The caller commits, so the change
+    and its audit row succeed or fail together (D-37)."""
+    db.add(
+        AuditEvent(
+            actor_id=allowed.principal_id,
+            tenant_id=allowed.tenant_id,
+            action=allowed.spec.operation,
+            resource_type=resource_type or allowed.spec.resource_type,
+            resource_id=resource_id or allowed.path_ids[allowed.spec.target_param],
+            decision="allow",
+            reason_code="ok",
+            timestamp=deps.clock(),
+            correlation_id=allowed.request_id,
+        )
+    )

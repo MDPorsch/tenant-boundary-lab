@@ -15,12 +15,13 @@ from uuid import UUID
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from sqlalchemy.orm import sessionmaker
+from starlette.concurrency import run_in_threadpool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.requests import Request
 from starlette.responses import Response
 
 from tenantlab.api.gates import Deps, run_gates
-from tenantlab.api.handlers import HANDLERS, Handler, not_implemented
+from tenantlab.api.handlers import HANDLERS, Context, Handler, not_implemented
 from tenantlab.api.middleware import RequestContextMiddleware
 from tenantlab.api.problems import ApiProblem, problem_response
 from tenantlab.api.routes import ROUTES, RouteSpec
@@ -35,13 +36,14 @@ def _mount(app: FastAPI, spec: RouteSpec, deps: Deps) -> None:
     if not spec.implemented:
         handler = not_implemented
 
-    def endpoint(request: Request) -> Response:
-        # A sync endpoint runs in the thread pool: the blocking database calls stay off the loop.
+    async def endpoint(request: Request) -> Response:
         # `request` is the only parameter on purpose: FastAPI parses a JSON body BEFORE running
         # the endpoint if the signature declares one, which would turn "anonymous + malformed
-        # JSON" into a 422 (decision D-18). The body is read, after the gates, by the handler.
-        allowed = run_gates(request, spec, deps)
-        return handler(allowed, request)
+        # JSON" into a 422 (decision D-18). The body is read below, AFTER the gates.
+        # The gates and the handler do blocking database calls: both run in the thread pool.
+        allowed = await run_in_threadpool(run_gates, request, spec, deps)
+        body = await request.body() if spec.has_body else b""
+        return await run_in_threadpool(handler, Context(allowed, deps, request, body))
 
     app.add_api_route(
         spec.path,
