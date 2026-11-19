@@ -6,8 +6,6 @@ ORACLE (`field_policy.csv`) through tests/support_m2.py, never from application 
 
 from __future__ import annotations
 
-import statistics
-import time
 from collections.abc import Callable
 from typing import Any
 
@@ -269,30 +267,3 @@ async def test_tl19_the_audit_total_ignores_other_tenants_and_tenantless_rows(
     body = (await lab.request("GET", path, headers=lab.bearer("alice"))).json()
     assert body["total"] == 3
     assert len(body["items"]) == 3
-
-
-async def _median(lab: Lab, path: str, headers: dict[str, str], runs: int) -> float:
-    samples = []
-    for _ in range(runs):
-        started = time.perf_counter()
-        response = await lab.request("GET", path, headers=headers)
-        samples.append(time.perf_counter() - started)
-        assert response.status_code == 404
-    return statistics.median(samples)
-
-
-async def test_tl19_timing_smoke_a_hidden_project_is_not_grossly_slower_than_a_missing_one(
-    open_lab: OpenLab,
-) -> None:
-    """A GROSS-difference smoke test only. Constant-time behaviour is explicitly NOT claimed
-    (LIMITATIONS L-07). Best of three rounds; the tolerance is a factor of five."""
-    lab: Lab = await open_lab()
-    headers = lab.bearer("alice")
-    hidden = f"/v1/projects/{lab.fx.project('PA2').id}"  # exists, but its market is not permitted
-    missing = f"/v1/projects/{lab.fx.never_seeded['project']}"
-    ratios = []
-    for _ in range(3):
-        h = await _median(lab, hidden, headers, 25)
-        m = await _median(lab, missing, headers, 25)
-        ratios.append(max(h, m) / min(h, m))
-    assert min(ratios) < 5.0, f"hidden vs missing latency ratios {ratios}"

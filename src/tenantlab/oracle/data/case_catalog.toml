@@ -203,7 +203,7 @@ owasp = ["API1:2023", "API3:2023"]
 milestones = ["M2"]
 state = "green"
 mutation_allowed = false
-test_modules = ["tests/negative/test_m2_properties.py"]
+test_modules = ["tests/negative/test_m2_properties.py", "tests/negative/test_m2_timing.py"]
 expected = "The list total equals the number of objects the actor may read; adding rows to another tenant or to a hidden market never changes it. Timing: only a gross-difference smoke check; constant-time behaviour is explicitly NOT claimed (LIMITATIONS). Business tables unchanged."
 
 [[cases]]

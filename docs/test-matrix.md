@@ -29,7 +29,7 @@ stale write, plus a best-effort concurrent run on SQLite); its PostgreSQL part i
 | TL-16 | Vulnerable router enabled outside the local lab | API8 | M3 | planned | (M3) |
 | TL-17 | Database write occurs and then a 403 is returned | API5, API1 | M4 | planned | (M4) |
 | TL-18 | Client-supplied identity or role headers/body | API3, API5 | M1 | green | `tests/negative/test_m1_untrusted_context.py` |
-| TL-19 | List totals and timing reveal hidden data | API1, API3 | M2 | green | `tests/negative/test_m2_properties.py` |
+| TL-19 | List totals and timing reveal hidden data | API1, API3 | M2 | green | `tests/negative/test_m2_properties.py`, `tests/negative/test_m2_timing.py` |
 | TL-20 | Overlapping membership and market-access changes | API1 | M5 | planned | (M5 on PostgreSQL) |
 
 ## Other test layers (M0 and M1)
