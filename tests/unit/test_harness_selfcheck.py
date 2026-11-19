@@ -8,6 +8,7 @@ import hashlib
 import hmac
 import json
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import httpx
@@ -179,19 +180,22 @@ def test_assert_problem_enforces_the_m0_error_contract() -> None:
         assert_problem(leaky, status=401, code="auth.token_invalid")
 
 
-def _toy_lab(db: Path, trusted: KeyPair, attacker: KeyPair) -> Lab:
-    engine = create_engine(f"sqlite+pysqlite:///{db}")
+@pytest.fixture
+def toy_lab(tmp_path: Path, trusted_keys: KeyPair, attacker_keys: KeyPair) -> Iterator[Lab]:
+    """A Lab over a bare SQLite file with the harness's table names. The engine is disposed so no
+    connection outlives the test (an unclosed sqlite3 connection is a ResourceWarning)."""
+    engine = create_engine(f"sqlite+pysqlite:///{tmp_path / 'toy.sqlite'}")
     with engine.begin() as conn:
         for table in BUSINESS_TABLES:
             conn.execute(text(f"CREATE TABLE {table} (id TEXT PRIMARY KEY, v TEXT)"))
         conn.execute(text("CREATE TABLE audit_events (id INTEGER PRIMARY KEY, reason_code TEXT)"))
-    return Lab(httpx.AsyncClient(), engine, TokenMint(trusted, attacker), load_fixtures())
+    lab = Lab(httpx.AsyncClient(), engine, TokenMint(trusted_keys, attacker_keys), load_fixtures())
+    yield lab
+    engine.dispose()
 
 
-def test_snapshot_detects_a_business_mutation_but_ignores_nothing(
-    tmp_path: Path, trusted_keys: KeyPair, attacker_keys: KeyPair
-) -> None:
-    lab = _toy_lab(tmp_path / "toy.sqlite", trusted_keys, attacker_keys)
+def test_snapshot_detects_a_business_mutation_but_ignores_nothing(toy_lab: Lab) -> None:
+    lab = toy_lab
     lab.sql("INSERT INTO projects (id, v) VALUES ('p1', 'x')")
     before = lab.snapshot()
     assert lab.snapshot() == before  # stable when nothing changed
@@ -202,9 +206,9 @@ def test_snapshot_detects_a_business_mutation_but_ignores_nothing(
 
 
 def test_snapshot_reports_exactly_the_new_audit_rows_and_audit_counts_as_a_change(
-    tmp_path: Path, trusted_keys: KeyPair, attacker_keys: KeyPair
+    toy_lab: Lab,
 ) -> None:
-    lab = _toy_lab(tmp_path / "toy2.sqlite", trusted_keys, attacker_keys)
+    lab = toy_lab
     before = lab.snapshot()
     lab.sql("INSERT INTO audit_events (reason_code) VALUES ('authz.forbidden')")
     after = lab.snapshot()
