@@ -10,7 +10,7 @@ from tests.support_m4 import Change, diff_business
 
 
 def _snap(**tables: tuple[tuple[object, ...], ...]) -> Snapshot:
-    business: dict[str, tuple[tuple[object, ...], ...]] = {t: () for t in BUSINESS_TABLES}
+    business: dict[str, tuple[tuple[object, ...], ...]] = dict.fromkeys(BUSINESS_TABLES, ())
     business.update(tables)
     return Snapshot(business, ())
 
@@ -48,8 +48,8 @@ def test_changes_in_several_tables_come_back_sorted_and_complete() -> None:
 
 
 def test_the_audit_log_is_not_part_of_the_business_diff() -> None:
-    before = Snapshot({t: () for t in BUSINESS_TABLES}, ())
-    after = Snapshot({t: () for t in BUSINESS_TABLES}, ({"id": "a1", "decision": "deny"},))
+    before = Snapshot(dict.fromkeys(BUSINESS_TABLES, ()), ())
+    after = Snapshot(dict.fromkeys(BUSINESS_TABLES, ()), ({"id": "a1", "decision": "deny"},))
     assert diff_business(before, after) == []
 
 
@@ -66,3 +66,12 @@ def test_a_change_of_a_value_type_is_a_modification_not_silence() -> None:
     before = _snap(projects=((1, "x"),))
     after = _snap(projects=(("1", "x"),))
     assert diff_business(before, after) == [Change("projects", "1", "modified")]
+
+
+def test_changes_inside_one_table_are_sorted_by_key_not_by_the_order_they_were_found() -> None:
+    before = _snap(projects=(("b", "x"),))
+    after = _snap(projects=(("a", "x"),))
+    assert diff_business(before, after) == [
+        Change("projects", "a", "added"),
+        Change("projects", "b", "removed"),
+    ]

@@ -1,4 +1,4 @@
-"""The four controlled flaws. Each is an independent switch (decision D-42).
+"""The five controlled flaws. Each is an independent switch (decisions D-42 and D-53).
 
 Importing this module is harmless: nothing here is vulnerable by itself.
 """
@@ -18,6 +18,10 @@ class Flaw(StrEnum):
     PRIVATE_PROPERTY_SERIALIZED = "private_property_serialized"
     #: API1. The market-access gate is skipped (hidden-market objects are reachable and counted).
     MARKET_BOUNDARY_OMITTED = "market_boundary_omitted"
+    #: API5 / API1 (TL-17). The project PATCH is applied and COMMITTED before the authorization
+    #: check runs, which then answers 403 or 404 as usual: the status code is exactly what a correct
+    #: app returns, but the row has changed. Only a state diff can see it.
+    WRITE_BEFORE_AUTHORIZATION = "write_before_authorization"
 
 
 ALL_FLAWS = frozenset(Flaw)

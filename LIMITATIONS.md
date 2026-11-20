@@ -5,9 +5,9 @@ mistaken for more than it is.
 
 | ID | Limitation |
 |---|---|
-| L-01 | **There is still no runner, report or CI.** The vulnerable lab exists (M3) and the runner is the `boundarycheck` product (M4, see the design brief); until then nothing automatically tells a broken service from a fixed one, so a green suite shows the listed cases pass, not that a tool can detect a flaw. |
+| L-01 | **The runner is a separate product, and a green suite here does not prove it works.** The runner, oracle engine and reports live in the [`boundarycheck`](https://github.com/MDPorsch/boundarycheck) repository (old M4, D-55). This repository's suite shows that the listed cases pass and that the five flaws are real and attributable; whether a tool detects them is that repository's evidence. |
 | L-02 | **Mutation testing samples bug classes; it does not prove their absence.** `tools/mutation_m1.py` (69 bugs in the gates, verifier and middleware) and `tools/mutation_m2.py` (49 bugs in the handlers, write statements, parser and pager) are all caught by the suite, but they are the bugs I thought of. An equivalent mutant (`alg_confusion`) is caught only on the verifier's internal reason. |
-| L-03 | The oracle is **data and a loader**. The evaluation engine, case generator and state-diff runner arrive in M4. Today the oracle is checked only by contract tests that encode the same spec prose a second time. |
+| L-03 | The oracle is **data and a loader**. The evaluation engine, case generator and runner are `boundarycheck`'s (D-55); here the oracle is checked only by contract tests that encode the same spec prose a second time, and by the state diff of TL-17, which reads raw SQL and never calls application code. |
 | L-04 | A `pytest` pass shows that the listed cases pass. It is not proof of security. Coverage percentage is not proof either. |
 | L-05 | **Audit flooding** by an authenticated principal who deliberately triggers denials remains possible after M1 (pre-authentication noise is log-only, but post-authentication denials write rows). Planned mitigation (per-actor rate limit / coalescing) is not designed yet. |
 | L-06 | Ordinary successful reads are not audited (D-10): the audit trail shows denials and mutations, not who read what. |

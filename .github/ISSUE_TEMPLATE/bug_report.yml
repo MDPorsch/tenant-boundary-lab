@@ -5,7 +5,7 @@ body:
     attributes:
       value: |
         Do not include real credentials, personal data or details of systems you do not own.
-        The four intentional flaws of the vulnerable lab are not bugs.
+        The five intentional flaws of the vulnerable lab are not bugs.
   - type: textarea
     id: what
     attributes:

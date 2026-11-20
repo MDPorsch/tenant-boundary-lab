@@ -25,7 +25,7 @@ closed, not a substitute for the container.
 | 7 | **Container (the network boundary)** | `deploy/Dockerfile.vulnerable-lab` and `deploy/compose.vulnerable-lab.yaml`: `network_mode: none`, no published ports, non-root, read-only root filesystem, all capabilities dropped, `no-new-privileges`, tmpfs for state | compose-file test (no Docker needed) and Docker tests that **run** a self-check inside the container with and without a network (a control proves the check can fail) |
 | 8 | **Visible marking** | Every response carries `X-Tenantlab-Vulnerable: deliberately-broken-lab` and the process logs a banner naming the enabled flaws | header and banner tests |
 
-## 2. The four controlled flaws
+## 2. The five controlled flaws
 
 Each flaw is a named switch (`Flaw`), enabled independently. With **no** flaw enabled the vulnerable
 app must behave exactly like the patched app on the routes it implements (status and body, apart from
@@ -37,12 +37,13 @@ the request id): a **differential test** proves the flaws are the *only* differe
 | `ROLE_CHECK_MISSING` | API5 BFLA | The capability gate is skipped | bob (viewer) PATCHes his own tenant's project and reads its private contacts |
 | `PRIVATE_PROPERTY_SERIALIZED` | API3 BOPLA | The general project JSON embeds each contact's `email_private` and `phone_private` | bob reads the private sentinel from `GET /v1/projects/{id}` |
 | `MARKET_BOUNDARY_OMITTED` | API1 | The market-access gate is skipped | alice reads the hidden-market project PA2, its invoice IA2 and its contacts; the list and its total include PA2 |
+| `WRITE_BEFORE_AUTHORIZATION` (M4, D-53) | API5 / API1 (TL-17) | `PATCH /v1/projects/{id}` is validated, applied and **committed before** the authorization gates run; they then refuse as usual. Only an existing project is written, and validation (422) and the version check (409) still come first | gina owns the *suspended* tenant C, so every correct app refuses her write with 403 whatever else is broken; with this flaw the 403 is returned **and the row has changed**. The status code is identical to the patched app's: only a state diff can see it |
 
-The attribution matrix is a test: with exactly one flaw on, only that flaw's exploits succeed.
+The attribution matrix is a test: with exactly one flaw on, only that flaw's exploits succeed. The fifth flaw's exploit is judged by a raw-SQL snapshot, never by the response (TL-17).
 
 ## 3. What the vulnerable app implements
 
-A subset, enough to demonstrate the four flaws: `GET /v1/tenants/{t}/me` (never flawed: the probe),
+A subset, enough to demonstrate the five flaws: `GET /v1/tenants/{t}/me` (never flawed: the probe),
 `GET /v1/tenants/{t}/projects`, `GET /v1/projects/{id}`, `PATCH /v1/projects/{id}`,
 `GET /v1/projects/{id}/contacts`, `GET /v1/invoices/{id}`. Any other route answers the generic `404`.
 It writes **no audit rows** (it is a target for the runner, not an audit-faithful model). Authentication

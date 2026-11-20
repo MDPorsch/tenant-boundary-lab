@@ -5,7 +5,7 @@ that deselects them; they are never skipped, so a missing daemon cannot look lik
 
 The self-check (`deploy/container_selfcheck.py`) runs INSIDE the container and reports what it
 observes: who it runs as, which interfaces exist, whether outbound TCP and DNS work, whether the
-root filesystem is writable, which capabilities it holds, and whether the four exploits work there.
+root filesystem is writable, which capabilities it holds, and whether the five exploits work there.
 A CONTROL run without `--network none` must report that egress is NOT blocked: otherwise the check
 could be reporting 'blocked' for any reason at all.
 """
@@ -81,13 +81,14 @@ def test_tl16_inside_the_isolated_container_nothing_can_leave_and_nothing_is_pri
 
 
 def test_tl16_the_flaws_are_exploitable_inside_the_container(image: str) -> None:
-    """The lab still does its job once isolated: all four exploits work there."""
+    """The lab still does its job once isolated: all five exploits work there."""
     exploits = _selfcheck(image, "--network", "none", *HARDENED)["exploits"]
     assert exploits == {
         "TENANT_PREDICATE_OMITTED": True,
         "ROLE_CHECK_MISSING": True,
         "PRIVATE_PROPERTY_SERIALIZED": True,
         "MARKET_BOUNDARY_OMITTED": True,
+        "WRITE_BEFORE_AUTHORIZATION": True,
     }
 
 

@@ -1,9 +1,9 @@
 # Architecture
 
-Status: **M3.** Implemented: the oracle data and loaders, fixtures, error schema and harness (M0);
+Status: **M4.** Implemented: the oracle data and loaders, fixtures, error schema and harness (M0);
 settings, token verifier, database layer, route registry and gate pipeline (M1); the patched API:
 all ten handlers, request parsing, paging, atomic write statements and audit (M2). Not yet built:
-the runner and oracle engine (M4, as the `boundarycheck` product), PostgreSQL concurrency and CI (M5).
+PostgreSQL concurrency (M5), the published samples and the release (M6). M4 added the fifth vulnerable flaw and the TL-17 state diff; the runner and oracle engine are the separate `boundarycheck` product.
 
 ## 1. Components
 

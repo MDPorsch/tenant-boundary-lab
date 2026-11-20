@@ -94,7 +94,7 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 | T-08 BOPLA | **Built** (private fields on one surface; 403 not a stripped 200; field sets equal the oracle) | TL-09 over every surface and role, `test_m2_operations.py` |
 | T-09 mass assignment | **Built** (strict models, unknown keys 422, owner and tenant server-set) | TL-06 (every server-owned field on every body route), TL-15 |
 | T-10 parent/child confusion | **Built** (invoice resolved through the path project and the same tenant) | TL-07, `test_m1_gate_pipeline.py` |
-| T-11 write-then-deny | **Partly**: every check precedes the write and denials leave all business tables identical; the runner's before/after diff is M4 | TL-06, TL-08, TL-10, TL-15, TL-17 *(planned M4)* |
+| T-11 write-then-deny | **Built**: every check precedes the write; 20 denials, 5 refusals and the last-owner rule leave all business tables identical (a raw-SQL diff, D-54); the fifth vulnerable flaw is caught by the same diff although its status code is correct | TL-06, TL-08, TL-10, TL-15, TL-17 |
 | T-12 lost update and races | **Built for SQLite**: version compare-and-set; authority, quota and last owner re-checked inside the write statement; PostgreSQL proof is M5 | TL-11, TL-12, `test_m2_races.py`, `test_patched_service.py` |
 | T-13 audit poisoning, pre-auth flooding | **Built** (tenant NULL rule, no pre-auth rows, allow rows atomic with the change); authenticated flooding is residual (L-05) | TL-01..04, `test_m1_gate_pipeline.py`, `test_m2_operations.py` |
 | T-15 oracle collusion | **Built both ways** (D-21, now including `lab/patched`) | `test_oracle_independence.py`, `test_app_independence.py` |

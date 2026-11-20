@@ -91,7 +91,9 @@ DENIED: Final[tuple[tuple[str, str | None, str], ...]] = (
 async def _send(lab: Lab, name: str, who: str | None, body: object | None = None) -> Any:
     method, path, valid = _requests(lab)[name]
     headers = {} if who is None else lab.bearer(who)
-    return await lab.request(method, path, headers=headers, json_body=valid if body is None else body)
+    return await lab.request(
+        method, path, headers=headers, json_body=valid if body is None else body
+    )
 
 
 def _title(lab: Lab, project: str) -> str:
@@ -219,7 +221,7 @@ async def test_tl17_the_flawed_answer_is_indistinguishable_from_the_patched_one(
     bad = await _send(flawed, "patch PC1", "gina")
     assert good.status_code == bad.status_code == 403
     assert good.json()["code"] == bad.json()["code"] == "tenant.suspended"
-    assert body_sans_request_id(good).get("code") == body_sans_request_id(bad).get("code")
+    assert body_sans_request_id(good.json()) == body_sans_request_id(bad.json())
 
 
 @pytest.mark.parametrize(("who", "project", "status"), REFUSED_BUT_WRITTEN)

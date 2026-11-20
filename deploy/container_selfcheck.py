@@ -12,9 +12,11 @@ import asyncio
 import json
 import os
 import socket
+import sqlite3
 import tempfile
 import time
 import uuid
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,8 @@ import httpx
 import jwt
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+Proof = Callable[[httpx.Response, Path], bool]
 
 ISSUER = "https://issuer.tenantlab.invalid"
 AUDIENCE = "tenantlab-api"
@@ -80,19 +84,43 @@ async def _exploits() -> dict[str, bool]:
         }  # fmt: skip
         return {"Authorization": "Bearer " + jwt.encode(claims, private, algorithm="EdDSA")}
 
-    pa1, pa2, pb1 = (f"/v1/projects/{fx.project(k).id}" for k in ("PA1", "PA2", "PB1"))
+    pa1, pa2, pb1, pc1 = (f"/v1/projects/{fx.project(k).id}" for k in ("PA1", "PA2", "PB1", "PC1"))
     patch_body = {"title": "pwned", "row_version": 1}
-    # flaw: (principal, method, path, body, text that proves the exploit worked)
+
+    def shows(needle: str) -> Proof:
+        return lambda response, _db: response.status_code == 200 and needle in response.text
+
+    def row_changed_despite_403(project_id: str, title: str) -> Proof:
+        # WRITE_BEFORE_AUTHORIZATION: the response is a perfectly normal 403 (gina owns the
+        # SUSPENDED tenant C); only the database shows the write happened.
+        def proof(response: httpx.Response, db: Path) -> bool:
+            connection = sqlite3.connect(db)
+            try:
+                row = connection.execute(
+                    "SELECT title FROM projects WHERE id = ?", (project_id.replace("-", ""),)
+                ).fetchone()
+            finally:
+                connection.close()
+            return response.status_code == 403 and row is not None and row[0] == title
+
+        return proof
+
+    # flaw: (principal, method, path, body, how to tell the exploit worked)
     exploits = {
-        Flaw.TENANT_PREDICATE_OMITTED: ("bob", "GET", pb1, None, "SENTINEL-TENANT-B"),
-        Flaw.ROLE_CHECK_MISSING: ("bob", "PATCH", pa1, patch_body, "pwned"),
-        Flaw.PRIVATE_PROPERTY_SERIALIZED: ("bob", "GET", pa1, None, fx.private_sentinel),
-        Flaw.MARKET_BOUNDARY_OMITTED: ("alice", "GET", pa2, None, "US pilot"),
-    }
+        Flaw.TENANT_PREDICATE_OMITTED: ("bob", "GET", pb1, None, shows("SENTINEL-TENANT-B")),
+        Flaw.ROLE_CHECK_MISSING: ("bob", "PATCH", pa1, patch_body, shows("pwned")),
+        Flaw.PRIVATE_PROPERTY_SERIALIZED: ("bob", "GET", pa1, None, shows(fx.private_sentinel)),
+        Flaw.MARKET_BOUNDARY_OMITTED: ("alice", "GET", pa2, None, shows("US pilot")),
+        Flaw.WRITE_BEFORE_AUTHORIZATION: (
+            "gina", "PATCH", pc1, patch_body,
+            row_changed_despite_403(fx.project("PC1").id, "pwned"),
+        ),
+    }  # fmt: skip
     results: dict[str, bool] = {}
     work = Path(tempfile.mkdtemp(prefix="selfcheck-", dir="/tmp"))
-    for flaw, (who, method, path, body, needle) in exploits.items():
-        url = f"sqlite+pysqlite:///{work / (flaw.name + '.sqlite')}"
+    for flaw, (who, method, path, body, proof) in exploits.items():
+        db_file = work / (flaw.name + ".sqlite")
+        url = f"sqlite+pysqlite:///{db_file}"
         upgrade_to_head(url)
         seed_fixtures(url)
         settings = Settings(
@@ -104,7 +132,7 @@ async def _exploits() -> dict[str, bool]:
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://lab.invalid") as client:
             response = await client.request(method, path, headers=token(who), json=body)
-        results[flaw.name] = response.status_code == 200 and needle in response.text
+        results[flaw.name] = proof(response, db_file)
     return results
 
 

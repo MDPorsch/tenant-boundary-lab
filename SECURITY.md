@@ -31,8 +31,8 @@ In scope (please report):
   prevent (for example a guard that can be bypassed, or the vulnerable code appearing in the wheel);
 * a secret, personal data or an unsafe default in the repository or its CI.
 
-Out of scope: the four **intentional** flaws of the vulnerable variant (tenant predicate omitted, role
-check missing, private property serialized, market boundary omitted) and their exploits. They are
+Out of scope: the five **intentional** flaws of the vulnerable variant (tenant predicate omitted, role
+check missing, private property serialized, market boundary omitted, write before authorization) and their exploits. They are
 documented, switchable and expected.
 
 Do not include real credentials, personal data or third-party system details in any report.

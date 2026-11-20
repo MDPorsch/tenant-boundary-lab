@@ -4,6 +4,15 @@ All notable changes are recorded here. Pre-release; no version has been tagged.
 
 ## [Unreleased]
 
+### M4: forbidden-mutation detection (TL-17)
+
+- Fifth controlled flaw `WRITE_BEFORE_AUTHORIZATION` in the vulnerable lab (D-53): the project PATCH
+  is committed before the authorization gates run, so a refused request still changes the row while
+  its status code is exactly the correct one.
+- `tests/support_m4.py`: a raw-SQL state diff over the business tables (D-54), itself tested.
+- TL-17: every denied or refused write to the patched app leaves the business tables identical
+  (20 denials, 5 refusals, 3 detector controls), and the flawed app is caught by the diff.
+
 ### M3: the deliberately vulnerable lab
 
 - `tenantlab/lab/vulnerable/`: six routes with four independently switchable flaws (tenant predicate

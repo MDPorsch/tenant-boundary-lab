@@ -288,9 +288,8 @@ def _parse_patch(raw: bytes) -> tuple[str | None, str | None, int]:
     return title, status, version
 
 
-def patch_project(ctx: Ctx, request: Request, ids: Ids, body: bytes) -> Response:
-    project_id = ids["project_id"]
-    role, _ = authorize(ctx, "project.write", _project_target(ctx.db, project_id))
+def _apply_patch(ctx: Ctx, project_id: uuid.UUID, body: bytes) -> None:
+    """Validate, check the version, UPDATE and COMMIT. Nothing here looks at who is asking."""
     title, status, version = _parse_patch(body)
     stored = ctx.db.scalar(select(Project.row_version).where(Project.id == project_id))
     if stored != version:
@@ -309,6 +308,19 @@ def patch_project(ctx: Ctx, request: Request, ids: Ids, body: bytes) -> Response
     if changed.rowcount != 1:  # type: ignore[attr-defined]
         raise _problem(ErrorCode.CONFLICT_STALE_REVISION)
     ctx.db.commit()
+
+
+def patch_project(ctx: Ctx, request: Request, ids: Ids, body: bytes) -> Response:
+    project_id = ids["project_id"]
+    target = _project_target(ctx.db, project_id)
+    # FLAW WRITE_BEFORE_AUTHORIZATION: the change is committed BEFORE the gates run. A project
+    # that does not exist is never written (there is no row), and validation still comes first.
+    write_first = Flaw.WRITE_BEFORE_AUTHORIZATION in ctx.flaws and target is not None
+    if write_first:
+        _apply_patch(ctx, project_id, body)
+    role, _ = authorize(ctx, "project.write", target)
+    if not write_first:
+        _apply_patch(ctx, project_id, body)
     return _json(_project_detail(ctx, project_id, role))
 
 
