@@ -1,6 +1,6 @@
 [project]
 name = "tenant-boundary-lab"
-version = "0.0.0"
+version = "0.1.0"
 description = "Isolated lab, independent policy oracle and Python runner for API authorization regression testing (BOLA/BFLA/BOPLA)."
 readme = "README.md"
 authors = [{ name = "Mohammed Orunsolu" }]

@@ -9,17 +9,16 @@ regression testing**: tenant isolation, BOLA, BFLA, BOPLA/property exposure, mas
 resources, revocation and concurrency. It tests the *effects* (data disclosed, state changed), not just
 status codes: a `403` that arrives after a database write is a failure.
 
-> **Status: pre-release (alpha). Milestone M3 (the deliberately vulnerable lab) is built and awaiting the
-> owner's isolation review.**
-> The patched API is complete (M2): all ten routes are implemented behind the
-> deny-by-default gates: projects, invoices, private contacts, memberships and the tenant audit log,
-> with strict request parsing, field-level projection, atomic writes and audited outcomes. A
-> deliberately vulnerable variant with five controlled flaws exists for the runner to detect; it is
-> isolated in eight tested layers (see [docs/vulnerable-lab.md](docs/vulnerable-lab.md)). The runner
-> is the separate [`boundarycheck`](https://github.com/MDPorsch/boundarycheck) product (its v0.1 detects all four
-> flaws using read requests only; it does not detect the write exploits), which uses this lab as its reference target.
-> See [LIMITATIONS.md](LIMITATIONS.md) and the milestone reports in [docs/milestones/](docs/milestones/)
-> (M0, M1, M2, M2.1, M3).
+> **Status: release 0.1.0 (alpha), milestones M0 to M6 done.** The patched API implements all ten
+> routes behind deny-by-default gates (strict parsing, field-level projection, atomic writes whose
+> authority rows are locked, audited outcomes) and is proven on SQLite **and on PostgreSQL**. A
+> deliberately vulnerable variant with **five** controlled flaws exists for a runner to detect; it is
+> isolated in eight tested layers ([docs/vulnerable-lab.md](docs/vulnerable-lab.md)). The runner is the
+> separate [`boundarycheck`](https://github.com/MDPorsch/boundarycheck) product, which uses this lab as
+> its reference target and detects all five flaws, including the one that writes first and refuses
+> afterwards (see [docs/samples/](docs/samples/): broken versus fixed, real reports). Not published to
+> PyPI: the vulnerable variant is excluded from the wheel on purpose, so the release is the source tag.
+> Read [LIMITATIONS.md](LIMITATIONS.md) and the milestone reports in [docs/milestones/](docs/milestones/).
 
 OWASP terminology is API Security Top 10:2023 (API1 BOLA, API2 Broken Authentication, API3 BOPLA,
 API4 Unrestricted Resource Consumption, API5 BFLA, API8 Security Misconfiguration).
@@ -93,7 +92,7 @@ test enforces that the oracle imports no enforcement code.
 | **M3** (done, isolation review approved) | Deliberately vulnerable lab with four controlled flaws, isolation in eight layers (TL-16) |
 | **M4** (done) | The fifth flaw (write before authorization) and TL-17 with a raw-SQL state diff. The runner, oracle engine, reports and exit codes live in the separate [boundarycheck](https://github.com/MDPorsch/boundarycheck) repository. |
 | **M5** (done) | PostgreSQL concurrency (TL-11, TL-12, TL-20, the quota), an exhaustive sweep over every route, caller and target, and Hypothesis properties. Found and fixed four PostgreSQL-only defects (D-56, D-57). CI, dependency audit, secret scan and CodeQL run on every push. |
-| M6 | Redacted sample reports, diagram, release |
+| **M6** (done) | Real sample reports (broken versus fixed) and a terminal transcript in [docs/samples/](docs/samples/), the architecture diagram, the policy review, and the **0.1.0** tag |
 
 ## Contributing, security, licence
 

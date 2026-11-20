@@ -4,6 +4,10 @@ Accepted trade-offs and spec interpretations. "Owner approval" = the shared stan
 to confirm it before the dependent milestone proceeds. Each entry says what was chosen and why, so
 it can be challenged.
 
+**Approval status (2026-11-20):** every row marked **Yes** up to D-48 was approved with its milestone (M0,
+M1 and M2 as you approved them, D-40 explicitly, the M3 isolation review and D-16 on 2026-11-20). **D-53**
+and **D-56** are new and **not yet approved**. See [docs/policy-review.md](docs/policy-review.md).
+
 | ID | Decision | Owner approval |
 |---|---|---|
 | D-01 | **Python 3.13** via `uv` (3.13.18 installed with `uv python install`). `requires-python = ">=3.13,<3.14"`. The machine's system Python 3.14.7 is deliberately not used; 3.14 is added only after dependency compatibility is verified (spec). | No |

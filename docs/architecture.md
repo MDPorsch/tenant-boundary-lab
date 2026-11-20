@@ -1,9 +1,49 @@
 # Architecture
 
-Status: **M4.** Implemented: the oracle data and loaders, fixtures, error schema and harness (M0);
-settings, token verifier, database layer, route registry and gate pipeline (M1); the patched API:
-all ten handlers, request parsing, paging, atomic write statements and audit (M2). Not yet built:
-PostgreSQL concurrency (M5), the published samples and the release (M6). M4 added the fifth vulnerable flaw and the TL-17 state diff; the runner and oracle engine are the separate `boundarycheck` product.
+Status: **M6 (release 0.1.0).** Implemented: the oracle data and loaders, fixtures, error schema and
+harness (M0); settings, token verifier, database layer, route registry and gate pipeline (M1); the
+patched API: all ten handlers, request parsing, paging, atomic write statements and audit (M2); the
+isolated vulnerable variant (M3); the fifth flaw and the TL-17 state diff (M4); authority locks and the
+PostgreSQL proof (M5); samples, this diagram and the release (M6). The runner and oracle engine are the
+separate [`boundarycheck`](https://github.com/MDPorsch/boundarycheck) product.
+
+## 0. The picture
+
+```mermaid
+flowchart LR
+  subgraph spec["Independent of the app: data and judges"]
+    ORACLE["oracle data (CSV / TOML)<br/>roles, capabilities, field policy, 20 cases"]
+    FIX["fixtures.toml<br/>synthetic people, tenants, sentinels"]
+  end
+  subgraph app["The lab (tenantlab)"]
+    TOK["EdDSA JWT verifier"] --> GATES["gates 0..11<br/>deny by default"]
+    GATES --> HAND["handlers"]
+    HAND --> SVC["write statements<br/>authority locks (D-56)"]
+    SVC --> DB[("SQLite for the lab<br/>PostgreSQL 17 for concurrency")]
+    GATES --> AUD["audit rows"]
+  end
+  subgraph vuln["Deliberately vulnerable variant (never in the wheel)"]
+    VL["five switchable flaws"] --> L8["eight isolation layers<br/>container, no network"]
+  end
+  subgraph tools["boundarycheck (separate repository)"]
+    PLAN["planner"] --> RUN["runner"]
+    ORACLE2["declared policy<br/>(its own oracle)"] --> CMP["comparator"]
+    RUN --> CMP
+    RUN --> SNAP["raw-SQL state diff"]
+    CMP --> REP["JSON + Markdown report<br/>exit 0 / 1 / 2"]
+    SNAP --> REP
+  end
+  FIX --> DB
+  ORACLE -.-> TESTS["1450 tests, mutation checks,<br/>sweep, Hypothesis"]
+  TESTS -. "judge by HTTP status,<br/>raw SQL and sentinels" .-> app
+  RUN -- "in-process ASGI, no socket" --> app
+  RUN -- "in-process ASGI, no socket" --> vuln
+  SNAP -. reads .-> DB
+```
+
+Solid arrows are data or control flow; dotted arrows are judgement. The judges (oracle data, the
+tests' checker, boundarycheck's comparator) never import the code they judge: that is enforced by AST
+tests in both repositories.
 
 ## 1. Components
 

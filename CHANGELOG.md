@@ -1,8 +1,18 @@
 # Changelog
 
-All notable changes are recorded here. Pre-release; no version has been tagged.
+All notable changes are recorded here.
 
-## [Unreleased]
+## [0.1.0] - 2026-11-20
+
+First tagged release: milestones M0 to M6. The owner approved the M3 isolation review and the licence
+(Apache-2.0) on 2026-11-20 (D-16, D-41, D-43, D-44, D-46, D-48) and asked for M4 to M6, including this
+tagged release. D-53 and D-56 (the fifth flaw and the lock-based write path) still await their approval.
+
+### M6: samples, diagram, release
+
+- `docs/samples/`: four real boundarycheck reports (patched, role flaw, write-before-authorization, and
+  the same flawed lab run reads-only, which is clean) and a terminal transcript.
+- A Mermaid architecture diagram (`docs/architecture.md`), the policy review, the 0.1.0 tag.
 
 ### M5: PostgreSQL concurrency, a sweep and properties
 
