@@ -90,7 +90,7 @@ test enforces that the oracle imports no enforcement code.
 | **M0** (done, approved) | Contracts, oracle data, fixtures, threat model, failing tests. |
 | **M1** (done, approved) | Schema and migrations, seeds, token verifier, deny-by-default gates (TL-01..05, 14, 18) |
 | **M2** (done, approved) | Patched API: projects, invoices, contacts, membership, field projection, audit (TL-06..13, 15, 19) |
-| **M3** (this, awaiting your isolation review) | Deliberately vulnerable lab with four controlled flaws, isolation in eight layers (TL-16) |
+| **M3** (done, isolation review approved) | Deliberately vulnerable lab with four controlled flaws, isolation in eight layers (TL-16) |
 | M4 | Moved to the separate [boundarycheck](https://github.com/MDPorsch/boundarycheck) repository. Its v0.1 has the runner, oracle engine, reports and exit codes 0/1/2 for **read** requests; the state diff and write checks are not done, and TL-17 in this lab's case catalog is still planned. |
 | M5 | PostgreSQL concurrency, Hypothesis properties (TL-12, TL-20). CI, dependency audit, secret scan and CodeQL already run on every push. |
 | M6 | Redacted sample reports, diagram, release |
@@ -99,4 +99,4 @@ test enforces that the oracle imports no enforcement code.
 
 * [CONTRIBUTING.md](CONTRIBUTING.md): set-up and the non-negotiable rules (tests first, synthetic data only).
 * [SECURITY.md](SECURITY.md): what is in scope and how to report privately.
-* Licensed under the [Apache License 2.0](LICENSE) ([NOTICE](NOTICE)). The choice is recorded as D-16 and is pending the owner's confirmation.
+* Licensed under the [Apache License 2.0](LICENSE) ([NOTICE](NOTICE)). The choice is recorded as D-16 and was confirmed by the owner.

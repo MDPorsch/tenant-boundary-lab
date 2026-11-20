@@ -3,7 +3,7 @@ name = "tenant-boundary-lab"
 version = "0.0.0"
 description = "Isolated lab, independent policy oracle and Python runner for API authorization regression testing (BOLA/BFLA/BOPLA)."
 readme = "README.md"
-authors = [{ name = "MDPorsch" }]
+authors = [{ name = "Mohammed Orunsolu" }]
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 keywords = ["security", "authorization", "BOLA", "BFLA", "OWASP", "API security", "testing"]
