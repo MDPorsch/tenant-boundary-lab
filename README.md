@@ -16,7 +16,8 @@ status codes: a `403` that arrives after a database write is a failure.
 > with strict request parsing, field-level projection, atomic writes and audited outcomes. A
 > deliberately vulnerable variant with four controlled flaws exists for the runner to detect; it is
 > isolated in eight tested layers (see [docs/vulnerable-lab.md](docs/vulnerable-lab.md)). The runner
-> is the `boundarycheck` product (M4, see the design brief).
+> is the separate [`boundarycheck`](https://github.com/MDPorsch/boundarycheck) product (its v0.1 detects all four
+> flaws using read requests only; it does not detect the write exploits), which uses this lab as its reference target.
 > See [LIMITATIONS.md](LIMITATIONS.md) and the milestone reports in [docs/milestones/](docs/milestones/)
 > (M0, M1, M2, M2.1, M3).
 
@@ -76,7 +77,7 @@ test enforces that the oracle imports no enforcement code.
 | Schema, Alembic migration `0001`, deterministic seed | `src/tenantlab/db/` |
 | Contract and unit tests | `tests/unit/` |
 | Behavioural tests for TL-01..15, 18, 19 (M1 and M2 cases) | `tests/negative/test_m1_*.py`, `tests/negative/test_m2_*.py` |
-| Productization design (proposed, not implemented) | [docs/productization/boundarycheck-design.md](docs/productization/boundarycheck-design.md) |
+| Productization design (the design brief; v0.1 now exists as [boundarycheck](https://github.com/MDPorsch/boundarycheck)) | [docs/productization/boundarycheck-design.md](docs/productization/boundarycheck-design.md) |
 | Vulnerable lab (never in the wheel), its container files | `src/tenantlab/lab/vulnerable/`, `deploy/` |
 | Mutation checks, secret scan | `tools/mutation_m1.py`, `tools/mutation_m2.py`, `tools/mutation_m3.py`, `tools/secret_scan.py` |
 | Design | [docs/architecture.md](docs/architecture.md), [docs/threat-model.md](docs/threat-model.md), [docs/authorization-matrix.md](docs/authorization-matrix.md), [docs/api-contract.md](docs/api-contract.md), [docs/test-matrix.md](docs/test-matrix.md) |
@@ -90,7 +91,7 @@ test enforces that the oracle imports no enforcement code.
 | **M1** (done, approved) | Schema and migrations, seeds, token verifier, deny-by-default gates (TL-01..05, 14, 18) |
 | **M2** (done, approved) | Patched API: projects, invoices, contacts, membership, field projection, audit (TL-06..13, 15, 19) |
 | **M3** (this, awaiting your isolation review) | Deliberately vulnerable lab with four controlled flaws, isolation in eight layers (TL-16) |
-| M4 | Runner, oracle engine, state diff, reports, exit codes 0/1/2 (TL-17) |
+| M4 | Moved to the separate [boundarycheck](https://github.com/MDPorsch/boundarycheck) repository. Its v0.1 has the runner, oracle engine, reports and exit codes 0/1/2 for **read** requests; the state diff and write checks are not done, and TL-17 in this lab's case catalog is still planned. |
 | M5 | PostgreSQL concurrency, Hypothesis properties (TL-12, TL-20). CI, dependency audit, secret scan and CodeQL already run on every push. |
 | M6 | Redacted sample reports, diagram, release |
 
