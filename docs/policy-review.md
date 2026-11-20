@@ -45,7 +45,8 @@ Rules around the matrix (each is a decision in `DECISIONS.md`):
 | M0, M1, M2 | D-03, D-04, D-05, D-06, D-24 to D-26, D-28, D-31, D-32, D-34, D-37, D-38 and the rest marked **Yes** up to D-40 | Approved with the milestone (you approved M0, M1 and M2); D-40 approved explicitly |
 | M3 | D-41, D-43, D-44, D-46, D-48 (the isolation review) | **Approved 2026-11-20** |
 | Licence | D-16 (Apache-2.0) | **Confirmed 2026-11-20**; copyright holder named in `NOTICE` |
-| M4 | **D-53**: the fifth flaw in the vulnerable lab | **Not yet approved** |
+| M4 | **D-53**: the fifth flaw in the vulnerable lab | **Approved 2026-11-20** |
+| M5 | **D-58**: the sweep and properties use one checker with no application code | Needed no approval; the owner also approved it 2026-11-20 |
 | M5 | **D-56**: authority locks, per-tenant serialisation of creates and role changes | **Not yet approved** |
 
 ## 3. What a reviewer should challenge
