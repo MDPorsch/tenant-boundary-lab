@@ -6,7 +6,7 @@ All notable changes are recorded here.
 
 First tagged release: milestones M0 to M6. The owner approved the M3 isolation review and the licence
 (Apache-2.0) on 2026-11-20 (D-16, D-41, D-43, D-44, D-46, D-48) and asked for M4 to M6, including this
-tagged release. D-53 (the fifth flaw) was approved afterwards, on 2026-11-20; D-56 (the lock-based write path) still awaits approval.
+tagged release. D-53 (the fifth flaw) was approved afterwards, on 2026-11-20; D-56 (the lock-based write path) was approved on 2026-11-20 as well.
 
 ### M6: samples, diagram, release
 

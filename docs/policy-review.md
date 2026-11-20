@@ -47,7 +47,7 @@ Rules around the matrix (each is a decision in `DECISIONS.md`):
 | Licence | D-16 (Apache-2.0) | **Confirmed 2026-11-20**; copyright holder named in `NOTICE` |
 | M4 | **D-53**: the fifth flaw in the vulnerable lab | **Approved 2026-11-20** |
 | M5 | **D-58**: the sweep and properties use one checker with no application code | Needed no approval; the owner also approved it 2026-11-20 |
-| M5 | **D-56**: authority locks, per-tenant serialisation of creates and role changes | **Not yet approved** |
+| M5 | **D-56**: authority locks, per-tenant serialisation of creates and role changes | **Approved 2026-11-20** |
 
 ## 3. What a reviewer should challenge
 
