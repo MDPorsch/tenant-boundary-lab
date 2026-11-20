@@ -2,14 +2,17 @@
 
 ## What this repository is
 
-An educational **authorization-testing lab**. From milestone M3 it contains a *deliberately
-vulnerable* variant of a small API. That variant exists only to be attacked locally and to prove the
-test runner detects the flaws.
+An educational **authorization-testing lab**: a patched multi-tenant API, an independent policy
+oracle, and a **deliberately vulnerable** variant of the same API that exists only to be attacked
+locally and to prove that test tooling detects the flaws.
 
-* Never deploy it, expose it to a network, or point it at real data.
-* It is designed to refuse to start outside `LAB_MODE=1`, outside loopback, or in a production
-  environment (spec TL-16). Today (M1) the vulnerable variant does not exist yet.
-* Never aim the runner at systems you do not own. The runner only talks to the in-process app.
+* **Never deploy the vulnerable variant, expose it to a network, or point it at real data.** It
+  refuses to start outside `LAB_MODE=1`, outside the `lab`/`test` environment, on a non-loopback
+  address, on a networked database, or on data that is not synthetic (see
+  [docs/vulnerable-lab.md](docs/vulnerable-lab.md)). The container in `deploy/` removes the network
+  entirely and is the real boundary.
+* **The vulnerable code is not in the published wheel.** It exists only in a source checkout.
+* Never aim any tool from this project at a system you do not own or are not authorized to test.
 
 ## Supported versions
 
@@ -17,12 +20,20 @@ Pre-release. Only the latest commit on the default branch is supported.
 
 ## Reporting a vulnerability
 
-Please report problems in the **patched** implementation, the oracle, or the test harness (a policy
-bypass the tests miss, a secret, an unsafe default) through **GitHub private vulnerability
-reporting** on this repository ("Security" tab, "Report a vulnerability"). The owner must enable that
-setting; until it is enabled, open no public issue containing exploit detail and contact the owner
-through their GitHub profile instead.
+Please use **GitHub private vulnerability reporting**: the repository's **Security** tab, then
+**Report a vulnerability**. Do not open a public issue containing exploit detail.
 
-Do not include real credentials, personal data or third-party system details in any report or issue.
+In scope (please report):
 
-Flaws in the deliberately vulnerable variant are intentional and are not vulnerabilities.
+* a way to make the **patched** API, the token verifier or the policy oracle allow something the
+  documented policy denies, or leak data it should not;
+* a way to start, reach or ship the **vulnerable lab** in a way its isolation layers are meant to
+  prevent (for example a guard that can be bypassed, or the vulnerable code appearing in the wheel);
+* a secret, personal data or an unsafe default in the repository or its CI.
+
+Out of scope: the four **intentional** flaws of the vulnerable variant (tenant predicate omitted, role
+check missing, private property serialized, market boundary omitted) and their exploits. They are
+documented, switchable and expected.
+
+Do not include real credentials, personal data or third-party system details in any report.
+You can expect an acknowledgement within a few days; this is a volunteer project and there is no bounty.

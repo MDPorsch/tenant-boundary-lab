@@ -1,0 +1,8 @@
+Tenant Boundary Lab
+Copyright 2026 MDPorsch
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This project is an educational authorization-testing lab. It includes a DELIBERATELY VULNERABLE
+variant of a small API (src/tenantlab/lab/vulnerable/) that exists only to be attacked locally. It
+is provided "AS IS", without warranty of any kind, and must never be deployed or exposed to a network.

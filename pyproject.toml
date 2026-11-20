@@ -4,6 +4,18 @@ version = "0.0.0"
 description = "Isolated lab, independent policy oracle and Python runner for API authorization regression testing (BOLA/BFLA/BOPLA)."
 readme = "README.md"
 authors = [{ name = "MDPorsch" }]
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+keywords = ["security", "authorization", "BOLA", "BFLA", "OWASP", "API security", "testing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+    "Topic :: Software Development :: Testing",
+    "Programming Language :: Python :: 3.13",
+    "Framework :: FastAPI",
+    "Typing :: Typed",
+]
 requires-python = ">=3.13,<3.14"
 # Lower bounds = versions resolved on 2026-11-19; upper bounds stop silent major
 # upgrades. Exact, hash-pinned versions live in uv.lock (the source of truth).
@@ -21,6 +33,12 @@ dependencies = [
 lab = [
     "uvicorn>=0.54.0,<1",
 ]
+
+[project.urls]
+Homepage = "https://github.com/MDPorsch/tenant-boundary-lab"
+Source = "https://github.com/MDPorsch/tenant-boundary-lab"
+Issues = "https://github.com/MDPorsch/tenant-boundary-lab/issues"
+Security = "https://github.com/MDPorsch/tenant-boundary-lab/security/policy"
 
 [dependency-groups]
 dev = [

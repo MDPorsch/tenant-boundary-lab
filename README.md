@@ -1,11 +1,14 @@
 # Tenant Boundary Lab
 
+<!-- CI badge is added only after the workflow has run green. -->
+
 An isolated lab, an **independent policy oracle** and a Python runner for **API authorization
 regression testing**: tenant isolation, BOLA, BFLA, BOPLA/property exposure, mass assignment, nested
 resources, revocation and concurrency. It tests the *effects* (data disclosed, state changed), not just
 status codes: a `403` that arrives after a database write is a failure.
 
-> **Status: milestone M3 (the deliberately vulnerable lab), built and awaiting your isolation review.**
+> **Status: pre-release (alpha). Milestone M3 (the deliberately vulnerable lab) is built and awaiting the
+> owner's isolation review.**
 > The patched API is complete (M2): all ten routes are implemented behind the
 > deny-by-default gates: projects, invoices, private contacts, memberships and the tenant audit log,
 > with strict request parsing, field-level projection, atomic writes and audited outcomes. A
@@ -13,18 +16,18 @@ status codes: a `403` that arrives after a database write is a failure.
 > isolated in eight tested layers (see [docs/vulnerable-lab.md](docs/vulnerable-lab.md)). The runner
 > is the `boundarycheck` product (M4, see the design brief).
 > See [LIMITATIONS.md](LIMITATIONS.md) and the milestone reports in [docs/milestones/](docs/milestones/)
-> (M0, M1, M2).
+> (M0, M1, M2, M2.1, M3).
 
 OWASP terminology is API Security Top 10:2023 (API1 BOLA, API2 Broken Authentication, API3 BOPLA,
 API4 Unrestricted Resource Consumption, API5 BFLA, API8 Security Misconfiguration).
 
 ## Safety
 
+> **This repository contains a deliberately vulnerable API variant (`src/tenantlab/lab/vulnerable/`).** It exists only to be attacked locally. It is not in the published wheel, it refuses to start outside `LAB_MODE=1`, a loopback address and synthetic data, and the container in `deploy/` removes the network entirely. Do not deploy it or expose it.
+
 Local, synthetic, in-process only. Tests use `httpx.ASGITransport` (no sockets); all data is fictional
 (`.invalid` e-mail domain); signing keys are generated in memory per run and never written to disk.
-A deliberately vulnerable variant arrives in M3 and is designed to refuse to run outside
-`LAB_MODE=1` on loopback. Never deploy it. Never aim any of this at systems you do not own. See
-[SECURITY.md](SECURITY.md).
+Never aim any of this at systems you do not own. Report problems privately: see [SECURITY.md](SECURITY.md).
 
 ## Quick start
 
@@ -89,4 +92,8 @@ test enforces that the oracle imports no enforcement code.
 | M5 | PostgreSQL concurrency, Hypothesis properties, pinned CI, dependency/secret/SAST gates (TL-12, TL-20) |
 | M6 | Redacted sample reports, diagram, release |
 
-License: not yet chosen (owner decision, see DECISIONS D-16).
+## Contributing, security, licence
+
+* [CONTRIBUTING.md](CONTRIBUTING.md): set-up and the non-negotiable rules (tests first, synthetic data only).
+* [SECURITY.md](SECURITY.md): what is in scope and how to report privately.
+* Licensed under the [Apache License 2.0](LICENSE) ([NOTICE](NOTICE)). The choice is recorded as D-16 and is pending the owner's confirmation.

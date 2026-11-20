@@ -1,0 +1,5 @@
+# Every change needs the owner's review.
+*                       @MDPorsch
+/.github/               @MDPorsch
+/deploy/                @MDPorsch
+/src/tenantlab/lab/vulnerable/  @MDPorsch
