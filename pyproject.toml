@@ -106,6 +106,8 @@ ignore = ["PLR2004"]  # magic values are normal in test assertions
 # the PostgreSQL tests carry long SQL strings and prose docstrings that explain each race
 "tests/postgres/**" = ["E501"]
 "tests/support_m5.py" = ["E501"]
+"tests/support_properties.py" = ["E501"]
+"tests/negative/test_m5_*.py" = ["E501", "PLR0917"]  # fixtures make long signatures
 "tests/pgserver.py" = ["E501"]
 # S311: seeded PRNG for statistics. S104: "0.0.0.0" is the hostile INPUT the M3 guards must refuse.
 # Developer tooling: long one-line patches are the point; it runs subprocesses on purpose.

@@ -372,3 +372,31 @@ def test_audit_is_filtered_by_tenant_and_newest_first(db: Session) -> None:
     assert [i.id for i in items] == sorted((i.id for i in items), reverse=True)
     assert (len(items), more, total) == (2, True, 3)
     assert all(i.tenant_id == _id(FX.tenant("A").id) for i in items)
+
+
+# ---------------------------------------------------------------------------- M5: rowcount ----
+def test_a_driver_that_cannot_count_rows_is_an_error_not_zero_rows(db: Session) -> None:
+    """PostgreSQL reports -1 for an INSERT ... SELECT through psycopg 3 (found in M5): reading that
+    as "nothing was written" made every create fail closed. A SELECT reports -1 on SQLite too, so
+    the guard is testable here: an unknown count must raise, never be mistaken for zero."""
+    with pytest.raises(RuntimeError, match="did not report"):
+        service._rowcount(db.execute(text("SELECT id FROM tenants")))
+    updated = service._rowcount(db.execute(text("UPDATE tenants SET slug = slug")))
+    assert updated == _count(db, "tenants")
+
+
+def test_the_lock_helper_reports_a_missing_authority_row(db: Session) -> None:
+    """The authority rows must all exist for a write to proceed: no membership, no tenant, no
+    market access (when one is needed) and no principal each answer False. SQLite ignores the lock
+    clauses themselves, so this checks the lookups the locks rest on."""
+    tenant, dave, uk = _id(FX.tenant("A").id), _id(FX.principal("dave").id), _market("UK")
+    us, carla = _market("US"), _id(FX.principal("carla").id)
+    assert service._lock_authority(
+        db, tenant_id=tenant, actor_id=dave, exclusive=True, market_id=uk
+    )
+    assert not service._lock_authority(db, tenant_id=tenant, actor_id=carla, exclusive=False)
+    assert not service._lock_authority(
+        db, tenant_id=tenant, actor_id=dave, exclusive=False, market_id=us
+    )
+    assert not service._lock_authority(db, tenant_id=uuid.uuid4(), actor_id=dave, exclusive=False)
+    assert not service._lock_authority(db, tenant_id=tenant, actor_id=uuid.uuid4(), exclusive=False)

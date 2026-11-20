@@ -120,11 +120,11 @@ expected = "limit=0/-1/101/abc, oversized or malformed cursor, page=-1 (unknown 
 id = "TL-11"
 title = "Last owner removes themselves"
 owasp = ["API5:2023"]
-milestones = ["M2"]
+milestones = ["M2", "M5"]
 state = "green"
 mutation_allowed = false
-test_modules = ["tests/negative/test_m2_membership_revisions.py"]
-expected = "alice (sole active owner of A) demoting or revoking her own membership is 409 conflict.last_owner; membership rows identical before/after (atomic); a non-owner PUT on any membership is 403 including self-promotion."
+test_modules = ["tests/negative/test_m2_membership_revisions.py", "tests/postgres/test_m5_concurrency.py"]
+expected = "alice (sole active owner of A) demoting or revoking her own membership is 409 conflict.last_owner; membership rows identical before/after (atomic); a non-owner PUT on any membership is 403 including self-promotion. M5, on PostgreSQL: two owners demoting each other at the same moment leave exactly one owner (one request wins, the other is refused), never none."
 
 [[cases]]
 id = "TL-12"
@@ -133,7 +133,7 @@ owasp = ["n/a"]
 milestones = ["M2", "M5"]
 state = "green"
 mutation_allowed = true
-test_modules = ["tests/negative/test_m2_membership_revisions.py"]
+test_modules = ["tests/negative/test_m2_membership_revisions.py", "tests/postgres/test_m5_concurrency.py"]
 expected = "Exactly one PATCH returns 200 with row_version+1; the other 409 conflict.stale_revision; final row equals the winner. M2: sequential stale write on SQLite. M5: truly concurrent on PostgreSQL (SQLite cannot represent row-lock behaviour)."
 
 [[cases]]
@@ -211,7 +211,7 @@ id = "TL-20"
 title = "Overlapping membership and market-access changes"
 owasp = ["API1:2023"]
 milestones = ["M5"]
-state = "planned"
+state = "green"
 mutation_allowed = true
-test_modules = []
-expected = "On PostgreSQL, concurrent revoke/market-access changes versus reads: once the change commits, every later request is denied; no request observes a mixed state; authorization state is re-queried inside the request transaction."
+test_modules = ["tests/postgres/test_m5_concurrency.py"]
+expected = "On PostgreSQL, an authority change (membership revoked or downgraded, principal disabled, tenant suspended, market access removed) cannot complete while a write that relies on that authority is in flight: authority is re-queried and LOCKED inside the write transaction, so the change waits for the write (or the write is refused) and writes are never ordered after the revocation that should have stopped them. Concurrent creates cannot exceed the quota. Reads keep the documented check-then-use window (LIMITATIONS L-16)."

@@ -130,7 +130,9 @@ async def test_tl11_pg_two_owners_demoting_each_other_at_once_leave_one_owner(
         await wait_until_blocked(lab, 2)
         holder.release()
         responses = await asyncio.gather(first, second)
-    assert sorted(r.status_code for r in responses) == [200, 409], [r.text[:120] for r in responses]
+    # One demotion wins. The loser is then no longer an owner, so IT is refused (403): each request
+    # demotes the OTHER owner, so the winner has just taken the loser's authority away.
+    assert sorted(r.status_code for r in responses) == [200, 403], [r.text[:120] for r in responses]
     owners = _scalar(
         lab, "SELECT count(*) FROM memberships WHERE tenant_id = %s::uuid "
         "AND role = 'owner' AND status = 'active'", tenant,
@@ -290,3 +292,43 @@ def test_the_helpers_use_a_fresh_database_per_lab() -> None:
     first, second = server().new_database_url(), server().new_database_url()
     assert first != second
     assert uuid.UUID(first.rsplit("tl_", 1)[1]) != uuid.UUID(second.rsplit("tl_", 1)[1])
+
+
+async def test_tl20_pg_writes_to_different_projects_of_one_tenant_do_not_wait_for_each_other(
+    open_pg_lab: OpenPg,
+) -> None:
+    """The authority locks must not over-serialise: a write holds the tenant row only FOR SHARE, so
+    two writers to different projects of one tenant proceed side by side."""
+    lab: Lab = await open_pg_lab()
+    tenant, alice = lab.fx.tenant("A").id, lab.fx.principal("alice").email
+    other = uuid.uuid4()
+    with psycopg.connect(conninfo(lab.engine), autocommit=True) as conn:
+        conn.execute(
+            "INSERT INTO projects (id, tenant_id, market_id, owner_principal_id, title, status, row_version) "
+            "SELECT %s::uuid, %s::uuid, (SELECT id FROM markets WHERE code = 'UK'), "
+            "(SELECT id FROM principals WHERE email = %s), 'second project', 'active', 1",
+            (str(other), tenant, alice),
+        )
+    with Holder(lab) as holder:
+        holder.lock(
+            "SELECT 1 FROM projects WHERE id = %s::uuid FOR UPDATE", lab.fx.project("PA1").id
+        )
+        stuck = asyncio.create_task(_patch(lab, "dave"))
+        await wait_until_blocked(lab, 1)
+        try:
+            second = await asyncio.wait_for(
+                lab.request(
+                    "PATCH", f"/v1/projects/{other}", headers=lab.bearer("alice"),
+                    json_body={"title": "TL-20 second", "row_version": 1},
+                ),
+                timeout=8,
+            )  # fmt: skip
+        except TimeoutError:
+            holder.release()
+            await stuck
+            pytest.fail(
+                "a write to another project of the same tenant waited for an unrelated write"
+            )
+        holder.release()
+        await stuck
+    assert second.status_code == STATUS_OK

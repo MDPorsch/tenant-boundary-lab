@@ -8,7 +8,7 @@ PostgreSQL concurrency (M5), the published samples and the release (M6). M4 adde
 ## 1. Components
 
 ```text
- fixtures.toml ---> seed ---> database (SQLite for unit/lab, PostgreSQL for concurrency, M5)
+ fixtures.toml ---> seed ---> database (SQLite for unit/lab, PostgreSQL 17 for concurrency, M5)
                                   ^
                                   |  per-request re-read of principal, membership, tenant, market
  token (EdDSA JWT) --> FastAPI app (variant = patched | vulnerable)

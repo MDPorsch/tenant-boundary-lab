@@ -72,7 +72,7 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 | T-09 | Mass assignment of `tenant_id`, `owner_principal_id`, `id`, `role` | T, E | Strict request models (`extra=forbid`), server-owned fields never read from input | TL-06, TL-15, TL-18 |
 | T-10 | Parent/child confusion: project A with invoice B | I | Nested route resolves the invoice **through** the path project and tenant | TL-07 |
 | T-11 | Write-then-deny: mutation committed, then a 403 is returned | T | Checks precede side effects; the runner compares DB state before/after, not just status | TL-17 |
-| T-12 | Lost update / race on `row_version`, membership or market access | T | Optimistic `row_version`; transactional re-read; PostgreSQL row locks tested on PostgreSQL | TL-12, TL-20 *(planned M5)* |
+| T-12 | Lost update / race on `row_version`, membership or market access | T | Optimistic `row_version`; authority and market rows locked inside the write transaction (D-56); proven on PostgreSQL | TL-11, TL-12, TL-20 |
 | T-13 | Audit poisoning or flooding: attacker writes events into another tenant's log, or anonymous traffic fills the table | R, D | Pre-auth failures are log-only; denials for non-members carry tenant NULL; tenant audit endpoint filters on `tenant_id`. Authenticated-denial flooding is a **residual risk** (LIMITATIONS L-05) | TL-01, TL-03, TL-04 |
 | T-14 | The intentionally vulnerable variant is reachable from a network or production | E, I | `LAB_MODE=1` + loopback + non-production env or hard startup failure; module never imported by the default app; container without egress *(planned M3)* | TL-16 |
 | T-15 | Oracle collusion: expected results derived from the code under test | R | Declarative CSV/TOML, AST import guard, spec prose encoded a second time in contract tests | `test_oracle_independence.py`, matrix contract tests |
@@ -95,20 +95,20 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 | T-09 mass assignment | **Built** (strict models, unknown keys 422, owner and tenant server-set) | TL-06 (every server-owned field on every body route), TL-15 |
 | T-10 parent/child confusion | **Built** (invoice resolved through the path project and the same tenant) | TL-07, `test_m1_gate_pipeline.py` |
 | T-11 write-then-deny | **Built**: every check precedes the write; 20 denials, 5 refusals and the last-owner rule leave all business tables identical (a raw-SQL diff, D-54); the fifth vulnerable flaw is caught by the same diff although its status code is correct | TL-06, TL-08, TL-10, TL-15, TL-17 |
-| T-12 lost update and races | **Built for SQLite**: version compare-and-set; authority, quota and last owner re-checked inside the write statement; PostgreSQL proof is M5 | TL-11, TL-12, `test_m2_races.py`, `test_patched_service.py` |
+| T-12 lost update and races | **Built and proven on PostgreSQL** (M5): version compare-and-set; authority locked and re-checked inside the write transaction; the quota and the last-owner rule serialised per tenant; four real defects found by running there | TL-11, TL-12, `test_m2_races.py`, `test_patched_service.py` |
 | T-13 audit poisoning, pre-auth flooding | **Built** (tenant NULL rule, no pre-auth rows, allow rows atomic with the change); authenticated flooding is residual (L-05) | TL-01..04, `test_m1_gate_pipeline.py`, `test_m2_operations.py` |
 | T-15 oracle collusion | **Built both ways** (D-21, now including `lab/patched`) | `test_oracle_independence.py`, `test_app_independence.py` |
 | T-16 committed secrets | **Built locally**: no key on disk; gitleaks finds nothing in history or tree, and a canary proves the scanner works; CI gate is M5 (L-12) | `tools/secret_scan.py`, `test_settings.py` |
 | T-17 resource exhaustion | **Mostly**: body cap, limit 1..100, cursor cap, quota 1 000, embedded contacts 100, statement ceiling independent of data; no rate limit (L-19) | TL-10, TL-15, `test_m2_input.py` |
 | T-18 log injection | **Built** (server-generated ids; fixed log fields; no token/body in logs) | TL-18, log tests |
 | T-14 vulnerable variant reachable or shipped | **Built (M3)**: eight layers, each tested; the container is the network boundary; found and fixed a world-connectable socket (D-48) | `test_m3_isolation.py`, `test_m3_flaws.py`, `tests/docker/`, `tools/mutation_m3.py` |
-| T-19, T-20 | Not yet (M4-M5) | n/a |
+| T-19, T-20 | T-19: the runner is `boundarycheck`, exit codes 0/1/2. T-20: CI pins every action by SHA and audits dependencies (D-49) | `boundarycheck`, `.github/workflows/ci.yml` |
 
 ## 5. Explicit non-goals and caveats
 
 * No claim that a status code is sufficient evidence: every no-mutation case also requires unchanged state.
 * Timing side channels: a gross-difference smoke test only. Constant-time behaviour is **not** claimed.
-* SQLite cannot represent PostgreSQL row-locking; concurrency conclusions require PostgreSQL (M5).
+* SQLite cannot represent PostgreSQL row-locking; the concurrency conclusions come from PostgreSQL 17 only (M5).
 * In-process ASGI proves application logic, not network-layer defenses (TLS, proxies, WAF).
 * A passing test suite shows the listed cases pass. It is not proof of security.
 

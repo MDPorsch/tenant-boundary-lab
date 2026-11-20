@@ -92,7 +92,7 @@ test enforces that the oracle imports no enforcement code.
 | **M2** (done, approved) | Patched API: projects, invoices, contacts, membership, field projection, audit (TL-06..13, 15, 19) |
 | **M3** (done, isolation review approved) | Deliberately vulnerable lab with four controlled flaws, isolation in eight layers (TL-16) |
 | **M4** (done) | The fifth flaw (write before authorization) and TL-17 with a raw-SQL state diff. The runner, oracle engine, reports and exit codes live in the separate [boundarycheck](https://github.com/MDPorsch/boundarycheck) repository. |
-| M5 | PostgreSQL concurrency, Hypothesis properties (TL-12, TL-20). CI, dependency audit, secret scan and CodeQL already run on every push. |
+| **M5** (done) | PostgreSQL concurrency (TL-11, TL-12, TL-20, the quota), an exhaustive sweep over every route, caller and target, and Hypothesis properties. Found and fixed four PostgreSQL-only defects (D-56, D-57). CI, dependency audit, secret scan and CodeQL run on every push. |
 | M6 | Redacted sample reports, diagram, release |
 
 ## Contributing, security, licence

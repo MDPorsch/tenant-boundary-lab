@@ -78,8 +78,15 @@ class MembershipRecord:
 
 
 def _rowcount(result: Result[Any]) -> int:
+    """Rows a statement changed. A driver that does not know (-1) is an error, never "zero rows":
+    on PostgreSQL an INSERT ... SELECT reports -1 through psycopg 3 and SQLAlchemy 2.1 (found by
+    running the suite on PostgreSQL, M5), and reading that as "nothing was written" made every
+    project creation fail closed. Statements whose outcome matters use RETURNING instead."""
     assert isinstance(result, CursorResult)  # noqa: S101 - narrowing for the type checker
-    return int(result.rowcount)
+    count = int(result.rowcount)
+    if count < 0:
+        raise RuntimeError("the database driver did not report how many rows the statement changed")
+    return count
 
 
 def _readable_projects(tenant_id: uuid.UUID) -> ColumnElement[bool]:
@@ -108,6 +115,55 @@ def _actor_may(
             Membership.role.in_(list(roles)),
         ),
     )
+
+
+def _lock_authority(
+    db: Session,
+    *,
+    tenant_id: uuid.UUID,
+    actor_id: uuid.UUID,
+    exclusive: bool,
+    market_id: uuid.UUID | None = None,
+) -> bool:
+    """Lock the rows a write's authority rests on, in ONE fixed order, until the transaction ends.
+
+    The in-statement predicates (`_actor_may`) decide against the statement's snapshot, so two
+    transactions can each pass them and then both commit (write skew), and a revocation can commit
+    while a write that relies on the old authority is still in flight (D-56). Locks order those:
+
+    * the tenant row: `FOR UPDATE` when the write must be serialised per tenant (a role change and
+      its last-owner rule, a create and its quota), `FOR SHARE` otherwise (it also blocks a
+      suspension until the write has committed);
+    * the actor's principal row and her membership row `FOR SHARE` (a disable, a revocation or a
+      downgrade has to wait for the write);
+    * the market-access row `FOR SHARE` when the write depends on a market.
+
+    The order (tenant, principal, membership, market access) never changes, so two writers cannot
+    deadlock. SQLite ignores `FOR UPDATE`/`FOR SHARE` (it already serialises writers); the same
+    predicates inside the write statement still apply. Returns False when a row is missing: the
+    caller refuses and re-runs the gates to name the reason.
+    """
+    tenant = db.execute(
+        select(Tenant.id).where(Tenant.id == tenant_id).with_for_update(read=not exclusive)
+    ).first()
+    principal = db.execute(
+        select(Principal.id).where(Principal.id == actor_id).with_for_update(read=True)
+    ).first()
+    membership = db.execute(
+        select(Membership.principal_id)
+        .where(Membership.principal_id == actor_id, Membership.tenant_id == tenant_id)
+        .with_for_update(read=True)
+    ).first()
+    if tenant is None or principal is None or membership is None:
+        return False
+    if market_id is None:
+        return True
+    access = db.execute(
+        select(TenantMarketAccess.tenant_id)
+        .where(TenantMarketAccess.tenant_id == tenant_id, TenantMarketAccess.market_id == market_id)
+        .with_for_update(read=True)
+    ).first()
+    return access is not None
 
 
 # ------------------------------------------------------------------------------- reads ----
@@ -288,6 +344,10 @@ def create_project(  # noqa: PLR0913 - every argument is a distinct fact the sta
 ) -> uuid.UUID | None:
     """INSERT ... SELECT ... WHERE <authority, market, quota>. Returns the new id, or None when
     the database found any predicate false (nothing is written)."""
+    if not _lock_authority(
+        db, tenant_id=tenant_id, actor_id=actor_id, exclusive=True, market_id=market_id
+    ):
+        return None
     new_id = uuid.uuid4()
     under_quota = (
         select(func.count()).select_from(Project).where(Project.tenant_id == tenant_id)
@@ -301,7 +361,8 @@ def create_project(  # noqa: PLR0913 - every argument is a distinct fact the sta
         literal(1, Integer()),
     ).where(_actor_may(actor_id, tenant_id, roles), market_permitted, under_quota)  # fmt: skip
     result = db.execute(
-        insert(Project).from_select(
+        insert(Project)
+        .from_select(
             [
                 Project.id,
                 Project.tenant_id,
@@ -313,8 +374,9 @@ def create_project(  # noqa: PLR0913 - every argument is a distinct fact the sta
             ],
             source,
         )
+        .returning(Project.id)  # not rowcount: see _rowcount
     )
-    return new_id if _rowcount(result) == 1 else None
+    return new_id if result.scalar_one_or_none() is not None else None
 
 
 def update_project(  # noqa: PLR0913
@@ -328,6 +390,11 @@ def update_project(  # noqa: PLR0913
     status: str | None,
     roles: Sequence[str],
 ) -> bool:
+    project_market = db.scalar(select(Project.market_id).where(Project.id == project_id))
+    if project_market is None or not _lock_authority(
+        db, tenant_id=tenant_id, actor_id=actor_id, exclusive=False, market_id=project_market
+    ):
+        return False
     values: dict[str, Any] = {"row_version": Project.row_version + 1}
     if title is not None:
         values["title"] = title
@@ -365,6 +432,8 @@ def update_membership(  # noqa: PLR0913
     """Compare-and-set on `version`, with the last-owner invariant evaluated by the database: the
     change is refused unless the target is not currently an active owner, or stays one, or another
     active owner exists."""
+    if not _lock_authority(db, tenant_id=tenant_id, actor_id=actor_id, exclusive=True):
+        return False
     other = aliased(Membership)
     stays_active_owner = role == "owner" and status == "active"
     keeps_an_owner = or_(

@@ -85,7 +85,8 @@ class PgServer:
         self.port = int(mapping[0].rsplit(":", 1)[1])
 
     def stop(self) -> None:
-        _docker("rm", "-f", self.name, timeout=60)
+        # -v: the image declares its data directory a VOLUME; without it every run leaks ~1 GB
+        _docker("rm", "-f", "-v", self.name, timeout=60)
 
     def _url(self, database: str) -> str:
         return f"postgresql+psycopg://postgres:{self._password}@127.0.0.1:{self.port}/{database}"

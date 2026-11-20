@@ -52,7 +52,32 @@ jobs:
           enable-cache: true
       - run: uv sync --all-extras
       - run: docker version
-      - run: uv run pytest -q -m docker
+      - run: uv run pytest -q -m "docker and not postgres"
+
+  postgres:
+    name: PostgreSQL concurrency, and the functional suites on PostgreSQL
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          version: "0.13.9"
+          enable-cache: true
+      - run: uv sync --all-extras
+      - run: docker version
+      # The tests start their own throwaway PostgreSQL container from an image pinned by digest
+      # (tests/pgserver.py): a random password, a random loopback port, removed at the end.
+      - name: Concurrency tests (TL-11, TL-12, TL-20, the quota) on a real PostgreSQL server
+        run: uv run pytest -q -m postgres
+      - name: The M1 and M2 suites against PostgreSQL (the timing test stays on SQLite)
+        run: uv run pytest -q tests/negative/test_m1_*.py tests/negative/test_m2_*.py --ignore=tests/negative/test_m2_timing.py
+        env:
+          TENANTLAB_TEST_DB: postgres
 
   supply-chain:
     name: dependency audit and secret scan

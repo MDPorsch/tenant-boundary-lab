@@ -4,6 +4,21 @@ All notable changes are recorded here. Pre-release; no version has been tagged.
 
 ## [Unreleased]
 
+### M5: PostgreSQL concurrency, a sweep and properties
+
+- **Four defects found by running the suite on PostgreSQL, all fixed** (D-56, D-57): two owners
+  demoting each other at once left a tenant with **no owner**; two concurrent creates at 999 projects
+  made **1001**; an authority change (revocation, downgrade, disable, suspension, market removal) could
+  commit while a write relying on it was in flight; and `INSERT ... SELECT` reported `rowcount == -1`
+  through psycopg 3, so every project creation failed closed with 503.
+- Writes now lock the rows their authority rests on, in one fixed order (tenant, principal, membership,
+  market access), inside the write transaction.
+- `tests/postgres/` (15 tests, a throwaway container from an image pinned by digest) and
+  `TENANTLAB_TEST_DB=postgres` to run the M1 and M2 suites on PostgreSQL unchanged.
+- `tests/negative/test_m5_sweep.py` (every route x every caller x every target, one independent checker
+  that is shown to fail on each of the five flaws) and `test_m5_properties.py` (Hypothesis).
+- CI: a `postgres` job. Mutation check `tools/mutation_m5.py` (28 mutants).
+
 ### M4: forbidden-mutation detection (TL-17)
 
 - Fifth controlled flaw `WRITE_BEFORE_AUTHORIZATION` in the vulnerable lab (D-53): the project PATCH

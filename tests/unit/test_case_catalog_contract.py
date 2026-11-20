@@ -83,7 +83,7 @@ def test_cases_with_tests_have_real_test_functions_that_name_them(
 # SHIPPED milestones are green; IN_PROGRESS ones are red; the rest are planned. Update these two
 # lines when a milestone starts and when it ships; the test below then forces the catalog and the
 # docs to move with them.
-SHIPPED = {"M1", "M2", "M3", "M4"}
+SHIPPED = {"M1", "M2", "M3", "M4", "M5"}
 IN_PROGRESS: set[str] = set()
 
 

@@ -6,8 +6,8 @@ Source of truth: `src/tenantlab/oracle/data/case_catalog.toml` (loaded and valid
 State: **planned** = the test is written at the *start* of the listed milestone, before its code;
 **red** = a failing test exists and names the case (tests first) but the code is not built;
 **green** = the test exists, names the case and passes against the built code. A case moves
-planned, red, green and never backwards. TL-12 is green for its M2 part (sequential
-stale write, plus a best-effort concurrent run on SQLite); its PostgreSQL part is M5.
+planned, red, green and never backwards. TL-11 and TL-12 are green for their M2 part on SQLite and for
+their concurrent part on PostgreSQL (M5).
 
 | Case | Scenario | OWASP API 2023 | First milestone | State | Test module |
 |---|---|---|---|---|---|
@@ -21,8 +21,8 @@ stale write, plus a best-effort concurrent run on SQLite); its PostgreSQL part i
 | TL-08 | Cross-market access within the same tenant | API1 | M2 | green | `tests/negative/test_m2_authorization.py` |
 | TL-09 | Property-level leakage via response, pagination, export, error | API3 | M2 | green | `tests/negative/test_m2_properties.py` |
 | TL-10 | Hostile pagination and identifier input | API4 | M2 | green | `tests/negative/test_m2_input.py` |
-| TL-11 | Last owner removes themselves | API5 | M2 | green | `tests/negative/test_m2_membership_revisions.py` |
-| TL-12 | Two writers use the same `row_version` | n/a | M2, M5 | green | `tests/negative/test_m2_membership_revisions.py` |
+| TL-11 | Last owner removes themselves | API5 | M2, M5 | green | `tests/negative/test_m2_membership_revisions.py`, `tests/postgres/test_m5_concurrency.py` |
+| TL-12 | Two writers use the same `row_version` | n/a | M2, M5 | green | `tests/negative/test_m2_membership_revisions.py`, `tests/postgres/test_m5_concurrency.py` |
 | TL-13 | Membership revoked between list and object read | API1 | M2 | green | `tests/negative/test_m2_authorization.py` |
 | TL-14 | Suspended tenant or changed membership state with prior access | API1 | M1 | green | `tests/negative/test_m1_tenant_gates.py` |
 | TL-15 | UTF-8, overlong fields, unknown keys, type confusion | API3, API4 | M2 | green | `tests/negative/test_m2_input.py` |
@@ -30,7 +30,7 @@ stale write, plus a best-effort concurrent run on SQLite); its PostgreSQL part i
 | TL-17 | Database write occurs and then a 403 is returned | API5, API1 | M4 | green | `tests/negative/test_m4_forbidden_mutation.py`, `tests/unit/test_state_diff_helpers.py` |
 | TL-18 | Client-supplied identity or role headers/body | API3, API5 | M1 | green | `tests/negative/test_m1_untrusted_context.py` |
 | TL-19 | List totals and timing reveal hidden data | API1, API3 | M2 | green | `tests/negative/test_m2_properties.py`, `tests/negative/test_m2_timing.py` |
-| TL-20 | Overlapping membership and market-access changes | API1 | M5 | planned | (M5 on PostgreSQL) |
+| TL-20 | Overlapping membership and market-access changes | API1 | M5 | green | `tests/postgres/test_m5_concurrency.py` |
 
 ## Other test layers (M0 and M1)
 
@@ -62,7 +62,10 @@ stale write, plus a best-effort concurrent run on SQLite); its PostgreSQL part i
 | Timing (TL-19) | `tests/negative/test_m2_timing.py`, `tests/timing.py`, `tests/unit/test_timing_helpers.py` | Identical SQL per not-visible outcome (deterministic); interleaved permutation test with a 15% floor over two rounds; a check that the detector can see a real difference; the statistics themselves |
 | M2 operations | `tests/negative/test_m2_operations.py` | Exact response shape of every route, success audit rows, quota boundary, a mutation whose audit write fails is rolled back |
 | M2 races | `tests/negative/test_m2_races.py` | Authority, version, quota or last owner changing between a handler's pre-check and its write: the statement refuses, the true reason is reported, a race that never settles is 503 |
-| Write statements | `tests/unit/test_patched_service.py` | Each write statement re-checks authority by itself (call it with the state changed underneath) |
+| Write statements | `tests/unit/test_patched_service.py` | Each write statement re-checks authority by itself (call it with the state changed underneath); the authority-lock helper; an unknown row count is an error |
+| PostgreSQL concurrency (needs Docker, markers `docker`, `postgres`) | `tests/postgres/test_m5_concurrency.py`, `tests/support_m5.py`, `tests/pgserver.py` | Two owners demoting each other, the quota, eight writers on one version, and ten cases of an authority change that must wait for the write that relies on it, each made deterministic with a held row lock |
+| Sweep (M5) | `tests/negative/test_m5_sweep.py`, `tests/support_properties.py` | Every route x every caller (seven principals, no token, five forged tokens) x every target, judged by one independent checker; the checker is shown to fail on each of the five flaws |
+| Properties (M5) | `tests/negative/test_m5_properties.py` | Hypothesis sequences of requests on one lab, arbitrary JSON bodies, malformed `Authorization` headers, hidden-versus-missing indistinguishability |
 
 Mutation checks: `uv run python tools/mutation_m1.py` (gates, verifier, middleware, 69 bugs) and
 `uv run python tools/mutation_m2.py` (handlers, write statements, parser, pager, 52 bugs) and
