@@ -17,6 +17,11 @@ dependencies = [
     "typer>=0.29.2,<1",
 ]
 
+[project.optional-dependencies]
+lab = [
+    "uvicorn>=0.54.0,<1",
+]
+
 [dependency-groups]
 dev = [
     "hypothesis>=6.170.15,<7",
@@ -25,7 +30,9 @@ dev = [
     "pytest>=9.2.0,<10",
     "pytest-asyncio>=1.5.0,<2",
     "pytest-cov>=7.1.0,<8",
+    "pyyaml>=6.0.3,<7",
     "ruff>=0.17.6,<1",
+    "uvicorn>=0.54.0,<1",
 ]
 
 [build-system]
@@ -47,6 +54,9 @@ markers = [
     # It is informational only: such tests are expected to FAIL until that
     # milestone ships, and must never be skipped or xfailed to hide that.
     "milestone(name): the milestone (M1..M6) that must make this test pass",
+    # Needs a running Docker daemon. NOT skipped: without Docker these tests FAIL with a message
+    # that names the exact deselect command, so a missing daemon is never mistaken for a pass.
+    "docker: needs a Docker daemon (build and run the vulnerable-lab container)",
 ]
 
 # ------------------------------------------------------------------ ruff ----
@@ -63,7 +73,8 @@ ignore = ["PLR2004"]  # magic values are normal in test assertions
 
 [tool.ruff.lint.per-file-ignores]
 # assert is the point of a test; the harness hand-crafts hostile tokens.
-"tests/**" = ["S101", "S105", "S106", "S311", "PLR0913"]  # S311: seeded PRNG for statistics, not crypto
+"tests/**" = ["S101", "S105", "S106", "S311", "S104", "PLR0913"]
+# S311: seeded PRNG for statistics. S104: "0.0.0.0" is the hostile INPUT the M3 guards must refuse.
 # Developer tooling: long one-line patches are the point; it runs subprocesses on purpose.
 "tools/**" = ["E501", "PLR0913", "T201"]  # command-line tools print by design
 
