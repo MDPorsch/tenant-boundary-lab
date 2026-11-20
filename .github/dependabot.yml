@@ -11,3 +11,8 @@ updates:
   - package-ecosystem: "docker"
     directory: "/deploy"
     schedule: {interval: "weekly"}
+    ignore:
+      # D-01: the project is pinned to Python 3.13 (requires-python ">=3.13,<3.14"). Moving to another
+      # minor version is a deliberate decision with a compatibility check, not an automatic bump.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
