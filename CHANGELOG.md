@@ -4,6 +4,26 @@ All notable changes are recorded here. Pre-release; no version has been tagged.
 
 ## [Unreleased]
 
+### M3: the deliberately vulnerable lab
+
+- `tenantlab/lab/vulnerable/`: six routes with four independently switchable flaws (tenant predicate
+  omitted, role check missing, private property serialized, market boundary omitted). With no flaw
+  enabled it answers like the patched app to a 323-request matrix; each exploit works under exactly
+  its own flaw; the patched app denies all of them.
+- Isolation in eight tested layers (`docs/vulnerable-lab.md`): never imported by the default app
+  (checked in a clean interpreter), excluded from the wheel, import allow-list with no network
+  client, start-up guard (LAB_MODE exactly 1, environment lab or test, loopback literal bind, SQLite
+  file, synthetic data only), request guard (non-loopback peers get 403 however it was started),
+  Unix-socket launcher, container with no network, visible marking.
+- Container: `deploy/Dockerfile.vulnerable-lab`, `deploy/compose.vulnerable-lab.yaml`,
+  `deploy/container_selfcheck.py`. Colima and the Docker CLI installed. Measured inside: uid 10001,
+  loopback interface only, outbound TCP and DNS blocked, read-only root, no capabilities; a control on
+  the default network reaches out, so the check is not vacuous.
+- Found by a test: uvicorn chmods a Unix socket to 0666, so the first design's "owner-only socket"
+  was false. The launcher now requires an owner-only directory and chmods the socket to 0600 (D-48).
+- `tools/mutation_m3.py`: 42 bugs in the guards, flaw switches, launcher, wheel and container.
+- Decisions D-41..D-48; D-41, D-43, D-44, D-46, D-48 are for your isolation review.
+
 ### M2.1: timing hardening and secret scanning
 
 - Measured first: a hidden-market project took 5 SQL statements and was +23.5% slower than a missing

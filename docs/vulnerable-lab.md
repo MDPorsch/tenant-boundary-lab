@@ -21,7 +21,7 @@ closed, not a substitute for the container.
 | 3 | **Small, one-way imports** | The package may import only `schemas`, `db`, `auth`, `ids`, `config` and the generic `api.middleware`/`api.problems`. It must **not** import the patched gates, handlers, service, routes, the oracle or the runner, and it contains **no network client** (socket, ssl, http.client, urllib.request, urllib3, requests, httpx, aiohttp, websockets, smtplib, ftplib, subprocess) | AST allow-list test |
 | 4 | **Start-up guard (hard failure, no fallback)** | `create_vulnerable_app` raises `LabIsolationError` unless: `LAB_MODE` is exactly `1`; `TENANTLAB_ENV` is exactly `lab` or `test` (unset, `production`, `prod`, `staging`, anything else is refused); the bind host, if one is given, is a **literal loopback address**; the database is a SQLite **file**; and **every principal's e-mail ends in `@tenantlab.invalid`** (synthetic data only). It never returns the patched app instead | TL-16 guard tests |
 | 5 | **Request guard (independent of how it was started)** | Middleware refuses (`403`) any request whose peer address is not loopback, or whose local server address is a non-loopback IP literal, even if the process was started with `--host 0.0.0.0`. A Unix-socket peer (no IP) is allowed | TL-16 request-guard tests, including IPv4-mapped IPv6 |
-| 6 | **Process isolation** | The supported launcher (`python -m tenantlab.lab.vulnerable`) binds a **Unix domain socket** by default (no TCP listener exists) or a loopback TCP address; it refuses `0.0.0.0`, `::`, LAN and hostnames with exit status 2 | launcher tests; every exploit test talks to a **separate process** over the socket |
+| 6 | **Process isolation** | The supported launcher (`python -m tenantlab.lab.vulnerable`) binds a **Unix domain socket** by default (no TCP listener exists) or a loopback TCP address; it refuses `0.0.0.0`, `::`, LAN and hostnames with exit status 2. uvicorn `chmod`s a Unix socket to **0666** after binding, so the launcher also refuses a socket directory that group or others can traverse and `chmod`s the socket to 0600 once bound (D-48) | launcher tests; every exploit test talks to a **separate process** over the socket; the socket and its directory are checked for owner-only access; `lsof` shows no network socket |
 | 7 | **Container (the network boundary)** | `deploy/Dockerfile.vulnerable-lab` and `deploy/compose.vulnerable-lab.yaml`: `network_mode: none`, no published ports, non-root, read-only root filesystem, all capabilities dropped, `no-new-privileges`, tmpfs for state | compose-file test (no Docker needed) and Docker tests that **run** a self-check inside the container with and without a network (a control proves the check can fail) |
 | 8 | **Visible marking** | Every response carries `X-Tenantlab-Vulnerable: deliberately-broken-lab` and the process logs a banner naming the enabled flaws | header and banner tests |
 
@@ -55,10 +55,27 @@ is the real, strict verifier (authentication is not one of the flaws).
   removes the network. Run it in the container.
 * The guards are written by the same author as the flaws. They are tested and mutation-tested, not
   audited by a third party.
-* Loopback is reachable by every process on the same machine; the Unix-socket default narrows that to
-  the file permissions of the socket.
+* Loopback TCP is reachable by every process on the same machine; the Unix-socket default narrows that to
+  the owner of an owner-only directory (D-48).
+* The source distribution still contains the vulnerable code; only the **wheel** excludes it (D-43).
+* The container checks were run on Colima (Apple Virtualization) with Docker 29; another runtime is untested.
 
-## 5. Review checklist for the owner
+## 5. Running it
+
+```text
+# in a process, over a Unix socket (needs: uv sync --extra lab; LAB_MODE=1 TENANTLAB_ENV=lab and the
+# TENANTLAB_DATABASE_URL / TENANTLAB_JWT_* settings; the socket directory must be chmod 700)
+python -m tenantlab.lab.vulnerable --uds /tmp/lab-dir/s --flaws all
+python -m tenantlab.lab.vulnerable --uds /tmp/lab-dir/s --flaws role_check_missing,market_boundary_omitted
+
+# in the container, with no network (the real boundary)
+docker build -f deploy/Dockerfile.vulnerable-lab -t tenantlab-vulnerable-lab:local .
+docker run --rm --network none --read-only --tmpfs /tmp --cap-drop ALL \
+  --security-opt no-new-privileges --user 10001:10001 \
+  tenantlab-vulnerable-lab:local python /app/deploy/container_selfcheck.py
+```
+
+## 6. Review checklist for the owner
 
 1. Is the vulnerable code **excluded from the wheel** the right call (it then exists only in a source
    checkout), given that `boundarycheck` will need it as a fixture by Git tag? (D-43)

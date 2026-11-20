@@ -26,7 +26,7 @@ stale write, plus a best-effort concurrent run on SQLite); its PostgreSQL part i
 | TL-13 | Membership revoked between list and object read | API1 | M2 | green | `tests/negative/test_m2_authorization.py` |
 | TL-14 | Suspended tenant or changed membership state with prior access | API1 | M1 | green | `tests/negative/test_m1_tenant_gates.py` |
 | TL-15 | UTF-8, overlong fields, unknown keys, type confusion | API3, API4 | M2 | green | `tests/negative/test_m2_input.py` |
-| TL-16 | Vulnerable router enabled outside the local lab | API8 | M3 | red | `tests/negative/test_m3_isolation.py`, `tests/negative/test_m3_flaws.py`, `tests/docker/test_vulnerable_lab_container.py` |
+| TL-16 | Vulnerable router enabled outside the local lab | API8 | M3 | green | `tests/negative/test_m3_isolation.py`, `tests/negative/test_m3_flaws.py`, `tests/docker/test_vulnerable_lab_container.py` |
 | TL-17 | Database write occurs and then a 403 is returned | API5, API1 | M4 | planned | (M4) |
 | TL-18 | Client-supplied identity or role headers/body | API3, API5 | M1 | green | `tests/negative/test_m1_untrusted_context.py` |
 | TL-19 | List totals and timing reveal hidden data | API1, API3 | M2 | green | `tests/negative/test_m2_properties.py`, `tests/negative/test_m2_timing.py` |
@@ -55,13 +55,17 @@ stale write, plus a best-effort concurrent run on SQLite); its PostgreSQL part i
 | Middleware | `tests/unit/test_middleware.py` | Request id, body cap for streamed bodies, 500/503 mapping without leaks, crash after the response started is re-raised |
 | Gate pipeline | `tests/negative/test_m1_gate_pipeline.py` | Gate 0 (413), market scope before role, invoice coherence and nested route, malformed path ids (D-11), query strictness, fail-closed 503, logging, concurrency, response headers |
 
+| Vulnerable-lab isolation (TL-16) | `tests/negative/test_m3_isolation.py` | Start-up guard (LAB_MODE, environment, bind address, SQLite file, synthetic data), request guard, launcher, clean-interpreter import isolation, AST allow-list with no network client, wheel exclusion, compose and Dockerfile hardening; each refusal sits next to an acceptance |
+| Controlled flaws | `tests/negative/test_m3_flaws.py` | Every exploit works with all flaws and fails with none; attribution (one flaw, only its exploits); the patched app denies all of them; parity with the patched app; exploits against a separate Unix-socket process holding no network socket |
+| Container (needs Docker, marker `docker`) | `tests/docker/test_vulnerable_lab_container.py` | Self-check inside the container with `--network none` and a control without it; guards hold inside; no exposed port, non-root |
 | Timing (TL-19) | `tests/negative/test_m2_timing.py`, `tests/timing.py`, `tests/unit/test_timing_helpers.py` | Identical SQL per not-visible outcome (deterministic); interleaved permutation test with a 15% floor over two rounds; a check that the detector can see a real difference; the statistics themselves |
 | M2 operations | `tests/negative/test_m2_operations.py` | Exact response shape of every route, success audit rows, quota boundary, a mutation whose audit write fails is rolled back |
 | M2 races | `tests/negative/test_m2_races.py` | Authority, version, quota or last owner changing between a handler's pre-check and its write: the statement refuses, the true reason is reported, a race that never settles is 503 |
 | Write statements | `tests/unit/test_patched_service.py` | Each write statement re-checks authority by itself (call it with the state changed underneath) |
 
 Mutation checks: `uv run python tools/mutation_m1.py` (gates, verifier, middleware, 69 bugs) and
-`uv run python tools/mutation_m2.py` (handlers, write statements, parser, pager, 49 bugs); see
+`uv run python tools/mutation_m2.py` (handlers, write statements, parser, pager, 52 bugs) and
+`uv run python tools/mutation_m3.py` (isolation guards, flaw switches, launcher, wheel, container, 42 bugs); see
 `docs/milestones/M1.md` and `docs/milestones/M2.md`.
 
 Planned layers: `tests/integration`, `tests/property` (Hypothesis, M5), `tests/concurrency` (PostgreSQL, M5).

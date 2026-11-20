@@ -101,7 +101,8 @@ Mitigation columns reference gates (`gates.csv`) and cases (`case_catalog.toml`)
 | T-16 committed secrets | **Built locally**: no key on disk; gitleaks finds nothing in history or tree, and a canary proves the scanner works; CI gate is M5 (L-12) | `tools/secret_scan.py`, `test_settings.py` |
 | T-17 resource exhaustion | **Mostly**: body cap, limit 1..100, cursor cap, quota 1 000, embedded contacts 100, statement ceiling independent of data; no rate limit (L-19) | TL-10, TL-15, `test_m2_input.py` |
 | T-18 log injection | **Built** (server-generated ids; fixed log fields; no token/body in logs) | TL-18, log tests |
-| T-14, T-19, T-20 | Not yet (M3-M5) | n/a |
+| T-14 vulnerable variant reachable or shipped | **Built (M3)**: eight layers, each tested; the container is the network boundary; found and fixed a world-connectable socket (D-48) | `test_m3_isolation.py`, `test_m3_flaws.py`, `tests/docker/`, `tools/mutation_m3.py` |
+| T-19, T-20 | Not yet (M4-M5) | n/a |
 
 ## 5. Explicit non-goals and caveats
 

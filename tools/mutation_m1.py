@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
@@ -365,7 +366,9 @@ IGNORE = shutil.ignore_patterns(
 )
 
 
-def run_one(work: Path, edits: list[tuple[str, str, str]]) -> tuple[str, str]:
+def run_one(
+    work: Path, edits: list[tuple[str, str, str]], paths: list[str] | None = None
+) -> tuple[str, str]:
     if work.exists():
         shutil.rmtree(work)
     shutil.copytree(REPO, work, ignore=IGNORE)
@@ -383,7 +386,7 @@ def run_one(work: Path, edits: list[tuple[str, str, str]]) -> tuple[str, str]:
     if not imported.startswith(str(work)):
         return "NOAPPLY", f"the scratch copy is not the imported package: {imported}"
     result = subprocess.run(  # noqa: S603
-        [sys.executable, "-m", "pytest", *TEST_PATHS, "-q", "--tb=no", "-x",
+        [sys.executable, "-m", "pytest", *(TEST_PATHS if paths is None else paths), "-q", "--tb=no", "-x",
          "-p", "no:cacheprovider", "--no-header"],
         cwd=work, env=env, capture_output=True, text=True, timeout=600, check=False,
     )  # fmt: skip
@@ -391,7 +394,10 @@ def run_one(work: Path, edits: list[tuple[str, str, str]]) -> tuple[str, str]:
     return ("KILLED" if result.returncode != 0 else "SURVIVED"), tail
 
 
-def main(mutants: dict[str, list[tuple[str, str, str]]] | None = None) -> int:
+def main(
+    mutants: dict[str, list[tuple[str, str, str]]] | None = None,
+    paths_for: Callable[[str], list[str]] | None = None,
+) -> int:
     mutants = MUTANTS if mutants is None else mutants
     counts = {"KILLED": 0, "SURVIVED": 0, "NOAPPLY": 0}
     with tempfile.TemporaryDirectory(prefix="tenantlab-mutation-") as scratch:
@@ -405,7 +411,9 @@ def main(mutants: dict[str, list[tuple[str, str, str]]] | None = None) -> int:
             return 2
         print(f"baseline green | {info}", flush=True)
         for name, edits in mutants.items():
-            verdict, info = run_one(Path(scratch) / "work", edits)
+            verdict, info = run_one(
+                Path(scratch) / "work", edits, paths_for(name) if paths_for else None
+            )
             counts[verdict] += 1
             print(f"{verdict:9} {name} | {info}", flush=True)
     print(

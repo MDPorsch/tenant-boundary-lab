@@ -1,9 +1,9 @@
 # Architecture
 
-Status: **M2.** Implemented: the oracle data and loaders, fixtures, error schema and harness (M0);
+Status: **M3.** Implemented: the oracle data and loaders, fixtures, error schema and harness (M0);
 settings, token verifier, database layer, route registry and gate pipeline (M1); the patched API:
 all ten handlers, request parsing, paging, atomic write statements and audit (M2). Not yet built:
-the vulnerable variant (M3), the runner and oracle engine (M4), PostgreSQL concurrency and CI (M5).
+the runner and oracle engine (M4, as the `boundarycheck` product), PostgreSQL concurrency and CI (M5).
 
 ## 1. Components
 
@@ -44,7 +44,8 @@ src/tenantlab/
                              handlers.py                                              (M1)
   lab/patched/               schemas.py (strict requests, response models), paging.py,
                              service.py (bounded reads, authority-checking writes)    (M2)
-  lab/vulnerable/                                                                     (M3)
+  lab/vulnerable/            flaws.py, guard.py, handlers.py, app.py, __main__.py      (M3)
+  deploy/                    Dockerfile, compose file, container self-check            (M3)
   runner/  cli.py                                                     (M4)
 ```
 
@@ -52,7 +53,7 @@ src/tenantlab/
 |---|---|---|
 | `tenantlab.oracle` | stdlib, third-party, `tenantlab.schemas`, `tenantlab.lab.fixtures` | `api`, `auth`, `db`, `runner`, `lab.patched`, `lab.vulnerable` (enforced by test) |
 | `tenantlab.api`, `tenantlab.auth`, `tenantlab.db` | `schemas`, `lab.fixtures` (seed only), `lab.patched` (M2) | `oracle`, `runner`, `lab.vulnerable` (enforced by `test_app_independence.py`; subprocess check in M3) |
-| `tenantlab.lab.vulnerable` | `schemas`, `db` | anything from `oracle` |
+| `tenantlab.lab.vulnerable` | `schemas`, `db`, `auth`, `ids`, `config`, and the generic `api.middleware` and `api.problems` (an AST allow-list test); **no network client library** | everything else: the patched gates, handlers, service and routes, the oracle, the runner |
 
 ## 3. Request pipeline
 
