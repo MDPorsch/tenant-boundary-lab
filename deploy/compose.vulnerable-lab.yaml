@@ -1,0 +1,24 @@
+# DELIBERATELY VULNERABLE LAB. Local only, synthetic data, never deploy.
+#
+# No network at all, no published ports, no host mounts, no privileges. The lab listens on a Unix
+# socket INSIDE the container; reach it with `docker compose exec` (there is nothing to connect to
+# from outside, which is the point). Provide the PUBLIC verification key only:
+#   TENANTLAB_JWT_PUBLIC_KEY_PEM="$(cat public.pem)" docker compose -f deploy/compose.vulnerable-lab.yaml up --build
+services:
+  vulnerable-lab:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.vulnerable-lab
+    image: tenantlab-vulnerable-lab:local
+    network_mode: none
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    user: "10001:10001"
+    tmpfs: ["/tmp:rw,nosuid,size=64m"]
+    environment:
+      LAB_MODE: "1"
+      TENANTLAB_ENV: "lab"
+      TENANTLAB_JWT_ISSUER: "https://issuer.tenantlab.invalid"
+      TENANTLAB_JWT_AUDIENCE: "tenantlab-api"
+      TENANTLAB_JWT_PUBLIC_KEY_PEM: "${TENANTLAB_JWT_PUBLIC_KEY_PEM:?set the PUBLIC verification key PEM}"

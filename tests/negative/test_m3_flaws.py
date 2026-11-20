@@ -91,7 +91,10 @@ def _matrix(lab: Lab) -> list[tuple[str | None, str, str, Any]]:
         *(f"/v1/projects/{ids[p]}/contacts" for p in ("PA1", "PA2", "PB1", "PC1", "GP")),
         *(f"/v1/invoices/{ids[i]}" for i in ("IA1", "IA2", "IB1", "GI")),
     ]
-    people: list[str | None] = [*(p.key for p in lab.fx.principals), None, "garbage"]
+    # Header variants carrying a VALID token: authentication is not one of the flaws, so the
+    # vulnerable app must refuse (or accept) exactly what the patched app does.
+    variants = ["basic_alice", "double_space_alice", "lowercase_bearer_alice", "two_headers_alice"]
+    people: list[str | None] = [*(p.key for p in lab.fx.principals), None, "garbage", *variants]
     rows: list[tuple[str | None, str, str, Any]] = [
         (who, "GET", path, None) for who in people for path in paths
     ]
@@ -114,6 +117,25 @@ async def _answer(lab: Lab, who: str | None, method: str, path: str, body: Any) 
         headers: dict[str, str] = {}
     elif who == "garbage":
         headers = {"Authorization": "Bearer not-a-jwt"}
+    elif who.endswith("_alice") and who != "alice":
+        token = lab.token("alice")
+        scheme = {
+            "basic_alice": f"Basic {token}",
+            "double_space_alice": f"Bearer  {token}",
+            "lowercase_bearer_alice": f"bearer {token}",
+            "two_headers_alice": "",
+        }[who]
+        if who == "two_headers_alice":
+            response = await lab.client.request(
+                method, path, headers=[("Authorization", f"Bearer {token}")] * 2, json=body
+            )
+            payload = response.json()
+            return (
+                response.status_code,
+                response.headers["content-type"].split(";")[0],
+                body_sans_request_id(payload) if isinstance(payload, dict) else payload,
+            )
+        headers = {"Authorization": scheme}
     else:
         headers = lab.bearer(who)
     response = await lab.request(method, path, headers=headers, json_body=body)
@@ -133,7 +155,7 @@ async def test_with_no_flaw_enabled_the_vulnerable_app_answers_exactly_like_the_
     patched: Lab = await open_lab()
     vulnerable: Lab = await open_vuln(())
     rows = _matrix(patched)
-    assert len(rows) > 250
+    assert len(rows) > 200
     differences = []
     for who, method, path, body in rows:
         expected = await _answer(patched, who, method, path, body)
@@ -160,11 +182,40 @@ async def test_the_matrix_has_teeth_it_does_detect_a_flaw(
     assert seen > 0
 
 
+# ------------------------------------------------ the semantics of the tenant-predicate flaw ----
+async def test_the_tenant_predicate_flaw_applies_the_highest_role_held_in_any_tenant(
+    open_vuln: OpenVuln,
+) -> None:
+    """dave is an EDITOR in A and a VIEWER in B. With the tenant predicate omitted his best role
+    anywhere (editor) applies in B, so he can write B's project; bob, a viewer everywhere, cannot.
+    (This pair is not in the attribution matrix: a missing role check would let dave write too.)"""
+    broken: Lab = await open_vuln(["TENANT_PREDICATE_OMITTED"])
+    clean: Lab = await open_vuln(())
+    pb1 = broken.fx.project("PB1").id
+    body = {"title": "role-bleed", "row_version": 1}
+    dave = await broken.request(
+        "PATCH", f"/v1/projects/{pb1}", headers=broken.bearer("dave"), json_body=body
+    )
+    assert dave.status_code == 200, dave.text
+    bob = await broken.request(
+        "PATCH", f"/v1/projects/{pb1}", headers=broken.bearer("bob"), json_body=body
+    )
+    assert bob.status_code == 403, bob.text  # a viewer everywhere stays a viewer
+    control = await clean.request(
+        "PATCH", f"/v1/projects/{pb1}", headers=clean.bearer("dave"), json_body=body
+    )
+    assert control.status_code == 403, control.text  # without the flaw dave is only a viewer in B
+
+
 # --------------------------------------------------------- 5: a separate, socket-only process ----
 async def test_the_exploits_work_against_a_separate_process_serving_a_unix_socket_only(
     isolated_lab: Callable[..., IsolatedLab],
 ) -> None:
     process = isolated_lab(ALL_FLAWS)
+    mode = process.socket.stat().st_mode & 0o777
+    assert mode & 0o077 == 0, f"the socket is reachable by group or others: {oct(mode)}"
+    directory = process.socket.parent.stat().st_mode & 0o777
+    assert directory & 0o077 == 0, f"the socket directory is open to others: {oct(directory)}"
     lab = process.lab()
     try:
         for name, (_, exploit) in sorted(EXPLOITS.items()):

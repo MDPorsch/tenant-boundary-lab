@@ -39,9 +39,8 @@ VULN_DIR = PACKAGE / "lab" / "vulnerable"
 def _create(tmp_path: Path, trusted: KeyPair, **kwargs: Any) -> Any:
     """Call create_vulnerable_app with a freshly seeded database unless told otherwise."""
     try:
-        from tenantlab.lab.vulnerable import create_vulnerable_app  # noqa: PLC0415
-
         from tenantlab.config import Settings  # noqa: PLC0415
+        from tenantlab.lab.vulnerable import create_vulnerable_app  # noqa: PLC0415
     except ImportError as exc:
         pytest.fail(NOT_IMPLEMENTED.format(exc=exc), pytrace=False)
     url = kwargs.pop("database_url", None) or prepare_database(tmp_path / "guard.sqlite")
@@ -338,6 +337,22 @@ def test_tl16_the_launcher_refuses_to_run_outside_the_lab_environment(
     result = _launch(["--uds", "/tmp/never-created.sock"], env_extra)  # noqa: S108
     assert result.returncode == 2, result.stderr[-300:]
     assert "LAB_MODE" in result.stderr or "TENANTLAB_ENV" in result.stderr
+
+
+def test_tl16_the_launcher_refuses_a_socket_directory_that_others_can_traverse(
+    tmp_path: Path,
+) -> None:
+    """uvicorn chmods a Unix socket to 0666 after binding (found by a test: the socket WAS world
+    connectable), so the directory is what protects it."""
+    open_dir = tmp_path / "open"
+    open_dir.mkdir()
+    open_dir.chmod(0o755)
+    result = _launch(["--uds", str(open_dir / "s")], LAB_ENV)
+    assert result.returncode == 2, result.stderr[-300:]
+    assert "directory" in result.stderr.lower()
+    missing = _launch(["--uds", str(tmp_path / "no-such-dir" / "s")], LAB_ENV)
+    assert missing.returncode == 2
+    assert "directory" in missing.stderr.lower()
 
 
 # ------------------------------------------------ layers 1-3: the code never reaches the app ----

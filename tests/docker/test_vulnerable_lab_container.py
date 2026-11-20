@@ -94,10 +94,11 @@ def test_tl16_the_flaws_are_exploitable_inside_the_container(image: str) -> None
 def test_tl16_control_without_network_isolation_the_selfcheck_reports_egress_possible(
     image: str,
 ) -> None:
-    """Anti-vacuity: the same image on the default network must be seen to reach out, or 'blocked'
-    in the test above would prove nothing."""
+    """Anti-vacuity: the same image on the default network must be seen to reach out, by BOTH
+    probes, or 'blocked' in the test above would prove nothing for the probe that stayed silent."""
     report = _selfcheck(image, *HARDENED)
-    assert report["egress_tcp_blocked"] is False or report["dns_blocked"] is False
+    assert report["egress_tcp_blocked"] is False, "the TCP probe cannot see a reachable network"
+    assert report["dns_blocked"] is False, "the DNS probe cannot see a working resolver"
     assert report["interfaces"] != ["lo"]
 
 

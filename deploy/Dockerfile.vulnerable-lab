@@ -1,0 +1,21 @@
+# DELIBERATELY VULNERABLE LAB. Local only, synthetic data, never deploy.
+# The container is the real network boundary: run it with `--network none` (see
+# deploy/compose.vulnerable-lab.yaml). Build context: the repository root.
+
+FROM python:3.13-slim-bookworm AS build
+COPY --from=ghcr.io/astral-sh/uv:0.13.9 /uv /usr/local/bin/uv
+WORKDIR /app
+ENV UV_PYTHON_DOWNLOADS=never UV_LINK_MODE=copy
+COPY pyproject.toml uv.lock README.md ./
+COPY src ./src
+COPY deploy ./deploy
+RUN uv sync --frozen --no-dev --extra lab
+
+FROM python:3.13-slim-bookworm
+RUN useradd --uid 10001 --no-create-home --shell /usr/sbin/nologin lab
+WORKDIR /app
+COPY --from=build /app /app
+ENV PATH="/app/.venv/bin:${PATH}" PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1
+# No LAB_MODE / TENANTLAB_ENV here on purpose: opting in is an explicit act of whoever runs it.
+USER 10001:10001
+CMD ["python", "-m", "tenantlab.lab.vulnerable", "--uds", "/tmp/lab.sock", "--init-synthetic-db", "/tmp/lab.sqlite"]

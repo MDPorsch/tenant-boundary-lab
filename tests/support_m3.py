@@ -9,8 +9,10 @@ the fixtures, never by calling application code. The only application imports ar
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 import time
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from pathlib import Path
@@ -76,9 +78,8 @@ async def build_vulnerable_lab(
     """A migrated, seeded vulnerable app served in process. Fails the calling test explicitly
     while it does not exist."""
     try:
-        from tenantlab.lab.vulnerable import Flaw, create_vulnerable_app  # noqa: PLC0415
-
         from tenantlab.lab.fixtures.loader import load_fixtures  # noqa: PLC0415
+        from tenantlab.lab.vulnerable import Flaw, create_vulnerable_app  # noqa: PLC0415
     except ImportError as exc:
         pytest.fail(NOT_IMPLEMENTED.format(exc=exc), pytrace=False)
     url = prepare_database(db_file)
@@ -97,7 +98,9 @@ class IsolatedLab:
     """The vulnerable lab as a SEPARATE process that listens on a Unix socket only (no TCP)."""
 
     def __init__(self, tmp_path: Path, trusted: KeyPair, flaws: Iterable[str]) -> None:
-        self.socket = tmp_path / "lab.sock"
+        # macOS limits a Unix socket path to ~104 characters: pytest's tmp_path is longer
+        self.socket_dir = Path(tempfile.mkdtemp(prefix="tl-", dir="/tmp"))
+        self.socket = self.socket_dir / "s"
         self.db_file = tmp_path / "lab.sqlite"
         self.trusted = trusted
         self.flaws = ",".join(flaws) or "none"
@@ -149,6 +152,7 @@ class IsolatedLab:
                 self.process.wait(timeout=10)
             except subprocess.TimeoutExpired:
                 self.process.kill()
+        shutil.rmtree(self.socket_dir, ignore_errors=True)
 
 
 # ------------------------------------------------------------------------- the exploits ----

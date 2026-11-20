@@ -41,6 +41,10 @@ build-backend = "uv_build"
 
 [tool.uv.build-backend]
 module-name = "tenantlab"
+# D-43: the deliberately vulnerable lab is NOT shipped in the wheel. It exists only in a source
+# checkout (and in the container image built from one). tests/negative/test_m3_isolation.py builds
+# the wheel and fails if this is ever removed.
+wheel-exclude = ["tenantlab/lab/vulnerable/**"]
 
 # ---------------------------------------------------------------- pytest ----
 [tool.pytest.ini_options]
