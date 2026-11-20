@@ -1,5 +1,5 @@
 # Keep the build context small and free of anything local: the Dockerfile copies only
-# pyproject.toml, uv.lock, README.md, src/ and deploy/ explicitly.
+# pyproject.toml, uv.lock, README.md, LICENSE, NOTICE, src/ and deploy/ explicitly.
 .git
 .venv
 .mypy_cache
