@@ -181,9 +181,9 @@ id = "TL-17"
 title = "Database write occurs and then a 403 is returned"
 owasp = ["API5:2023", "API1:2023"]
 milestones = ["M4"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m4_forbidden_mutation.py"]
 expected = "Against a deliberately broken fixture that writes before denying, the runner reports a policy violation from the state diff although the status code matches the oracle; the run exits 1, never 0."
 
 [[cases]]

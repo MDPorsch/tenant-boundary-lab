@@ -38,6 +38,7 @@ ALL_FLAWS: Final = (
     "ROLE_CHECK_MISSING",
     "PRIVATE_PROPERTY_SERIALIZED",
     "MARKET_BOUNDARY_OMITTED",
+    "WRITE_BEFORE_AUTHORIZATION",
 )
 NOT_IMPLEMENTED: Final = (
     "NOT IMPLEMENTED (milestone M3): the vulnerable lab is missing: {exc}. This red test "
@@ -229,6 +230,15 @@ async def e4_hidden_in_list(lab: Lab) -> bool:
     return r.status_code == 200 and r.json().get("total") == 2
 
 
+async def e5_refused_write_persists(lab: Lab) -> bool:
+    """gina owns the SUSPENDED tenant C: every correct app refuses her write (403), whatever other
+    control is missing. If the row changed anyway, the write ran BEFORE the authorization check.
+    Judged by a raw-SQL snapshot, never by the response, which is a perfectly normal 403."""
+    before = lab.snapshot()
+    response = await _patch(lab, "gina", "PC1", "written-then-refused")
+    return response.status_code == 403 and lab.snapshot().business != before.business
+
+
 EXPLOITS: Final[dict[str, tuple[str, Exploit]]] = {
     "e1_cross_tenant_read": ("TENANT_PREDICATE_OMITTED", e1_cross_tenant_read),
     "e1_cross_tenant_list": ("TENANT_PREDICATE_OMITTED", e1_cross_tenant_list),
@@ -241,4 +251,5 @@ EXPLOITS: Final[dict[str, tuple[str, Exploit]]] = {
     "e4_hidden_invoice": ("MARKET_BOUNDARY_OMITTED", e4_hidden_invoice),
     "e4_hidden_contacts": ("MARKET_BOUNDARY_OMITTED", e4_hidden_contacts),
     "e4_hidden_in_list": ("MARKET_BOUNDARY_OMITTED", e4_hidden_in_list),
+    "e5_refused_write_persists": ("WRITE_BEFORE_AUTHORIZATION", e5_refused_write_persists),
 }

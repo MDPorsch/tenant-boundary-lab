@@ -42,7 +42,7 @@ OpenVuln = Callable[..., Any]
 @pytest.mark.parametrize("text_", ["all", "ALL", " all ", "All"])
 def test_all_means_every_flaw(text_: str) -> None:
     assert parse_flaws(text_) == ALL_FLAWS
-    assert len(ALL_FLAWS) == 4
+    assert len(ALL_FLAWS) == 5  # four from M3 plus WRITE_BEFORE_AUTHORIZATION (M4, D-53)
 
 
 @pytest.mark.parametrize("text_", ["none", "NONE", "", "   "])
