@@ -266,7 +266,7 @@ The common case is a developer testing the API they run on their own machine or 
 container, which is always on loopback. So v0.1 live mode is **loopback-only**:
 
 * One command: `boundarycheck test --live` against `http://127.0.0.1:PORT` (or `[::1]`, or a name that
-  resolves only to loopback). No per-run attestation flag: loopback traffic cannot leave the machine.
+  resolves only to loopback). No per-run attestation flag, because the tool itself connects only to loopback addresses. *Correction (2026-11-19):* this does NOT mean the traffic cannot leave the machine. The tool cannot see where a loopback listener forwards (an `ssh -L` tunnel or a local proxy on 127.0.0.1 can reach a remote host), so the guarantee is about the tool's own sockets, and the operator stays responsible for what is behind the port (boundarycheck `LIMITATIONS.md` BL-11).
 * Enforced by the tool, not by convention: the **connected peer** must be a loopback address (checked
   after connect, which also defeats DNS rebinding); a redirect to any other host is `policy_denied`;
   `GET`/`HEAD` only; request budget and rate limit; `trust_env=False` (no proxy variables); size and
