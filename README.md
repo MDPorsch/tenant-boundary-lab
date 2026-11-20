@@ -1,6 +1,8 @@
 # Tenant Boundary Lab
 
-<!-- CI badge is added only after the workflow has run green. -->
+[![CI](https://github.com/MDPorsch/tenant-boundary-lab/actions/workflows/ci.yml/badge.svg)](https://github.com/MDPorsch/tenant-boundary-lab/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/MDPorsch/tenant-boundary-lab/actions/workflows/codeql.yml/badge.svg)](https://github.com/MDPorsch/tenant-boundary-lab/actions/workflows/codeql.yml)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 An isolated lab, an **independent policy oracle** and a Python runner for **API authorization
 regression testing**: tenant isolation, BOLA, BFLA, BOPLA/property exposure, mass assignment, nested
@@ -89,7 +91,7 @@ test enforces that the oracle imports no enforcement code.
 | **M2** (done, approved) | Patched API: projects, invoices, contacts, membership, field projection, audit (TL-06..13, 15, 19) |
 | **M3** (this, awaiting your isolation review) | Deliberately vulnerable lab with four controlled flaws, isolation in eight layers (TL-16) |
 | M4 | Runner, oracle engine, state diff, reports, exit codes 0/1/2 (TL-17) |
-| M5 | PostgreSQL concurrency, Hypothesis properties, pinned CI, dependency/secret/SAST gates (TL-12, TL-20) |
+| M5 | PostgreSQL concurrency, Hypothesis properties (TL-12, TL-20). CI, dependency audit, secret scan and CodeQL already run on every push. |
 | M6 | Redacted sample reports, diagram, release |
 
 ## Contributing, security, licence
