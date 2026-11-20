@@ -26,7 +26,7 @@ stale write, plus a best-effort concurrent run on SQLite); its PostgreSQL part i
 | TL-13 | Membership revoked between list and object read | API1 | M2 | green | `tests/negative/test_m2_authorization.py` |
 | TL-14 | Suspended tenant or changed membership state with prior access | API1 | M1 | green | `tests/negative/test_m1_tenant_gates.py` |
 | TL-15 | UTF-8, overlong fields, unknown keys, type confusion | API3, API4 | M2 | green | `tests/negative/test_m2_input.py` |
-| TL-16 | Vulnerable router enabled outside the local lab | API8 | M3 | planned | (M3) |
+| TL-16 | Vulnerable router enabled outside the local lab | API8 | M3 | red | `tests/negative/test_m3_isolation.py`, `tests/negative/test_m3_flaws.py`, `tests/docker/test_vulnerable_lab_container.py` |
 | TL-17 | Database write occurs and then a 403 is returned | API5, API1 | M4 | planned | (M4) |
 | TL-18 | Client-supplied identity or role headers/body | API3, API5 | M1 | green | `tests/negative/test_m1_untrusted_context.py` |
 | TL-19 | List totals and timing reveal hidden data | API1, API3 | M2 | green | `tests/negative/test_m2_properties.py`, `tests/negative/test_m2_timing.py` |

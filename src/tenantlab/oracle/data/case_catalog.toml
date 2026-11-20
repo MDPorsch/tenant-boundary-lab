@@ -171,9 +171,9 @@ id = "TL-16"
 title = "Vulnerable router enabled outside the local lab"
 owasp = ["API8:2023"]
 milestones = ["M3"]
-state = "planned"
+state = "red"
 mutation_allowed = false
-test_modules = []
+test_modules = ["tests/negative/test_m3_isolation.py", "tests/negative/test_m3_flaws.py", "tests/docker/test_vulnerable_lab_container.py"]
 expected = "Constructing the vulnerable app without LAB_MODE=1, with TENANTLAB_ENV=production, or bound to a non-loopback host raises at startup (hard failure, no fallback to patched); importing the default application never imports tenantlab.lab.vulnerable (verified in a clean subprocess)."
 
 [[cases]]

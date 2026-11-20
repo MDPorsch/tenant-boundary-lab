@@ -84,7 +84,7 @@ def test_cases_with_tests_have_real_test_functions_that_name_them(
 # lines when a milestone starts and when it ships; the test below then forces the catalog and the
 # docs to move with them.
 SHIPPED = {"M1", "M2"}
-IN_PROGRESS: set[str] = set()
+IN_PROGRESS = {"M3"}
 
 
 def test_cases_follow_the_milestone_lifecycle(cases: dict[str, CatalogCase]) -> None:
