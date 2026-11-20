@@ -24,10 +24,11 @@ import base64
 import hashlib
 import hmac
 import json
+import os
 import time
 import uuid
-from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from collections.abc import Awaitable, Callable, Iterable, Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Final
 
@@ -41,6 +42,8 @@ from sqlalchemy import Engine, create_engine, text
 from tenantlab.lab.fixtures.loader import Fixtures, load_fixtures
 from tenantlab.schemas.errors import PROBLEM_MEDIA_TYPE, ProblemDetail
 
+#: `TENANTLAB_TEST_DB=postgres` runs `build_lab` on PostgreSQL (needs Docker), not SQLite.
+DB_SWITCH: Final = "TENANTLAB_TEST_DB"
 ISSUER: Final = "https://issuer.tenantlab.invalid"
 AUDIENCE: Final = "tenantlab-api"
 BASE_URL: Final = "http://tenantlab.invalid"  # reserved TLD; ASGITransport never opens a socket
@@ -172,6 +175,8 @@ class Lab:
     engine: Engine
     mint: TokenMint
     fx: Fixtures
+    #: run on `aclose`, e.g. the app's lifespan shutdown, which disposes ITS connection pool
+    on_close: list[Callable[[], Awaitable[object]]] = field(default_factory=list)
 
     def token(self, principal_key: str, **kwargs: Any) -> str:
         return self.mint.mint(self.fx.principal(principal_key).id, **kwargs)
@@ -204,9 +209,16 @@ class Lab:
             }
             audit = tuple(
                 dict(row._mapping)
-                for row in conn.execute(text("SELECT * FROM audit_events ORDER BY rowid"))
+                # `id` is the rowid alias on SQLite and a bigserial on PostgreSQL
+                for row in conn.execute(text("SELECT * FROM audit_events ORDER BY id"))
             )
         return Snapshot(business, audit)
+
+    def drop_table(self, table: str) -> None:
+        """Drop a table to simulate a database failure (callers pass constant names only)."""
+        self.sql(
+            f"DROP TABLE {table}" + ("" if self.engine.dialect.name == "sqlite" else " CASCADE")
+        )
 
     def sql(self, statement: str, **params: object) -> None:
         """Direct DB write by a test, modelling an out-of-band state change (revocation,
@@ -249,10 +261,14 @@ class Lab:
 
     async def aclose(self) -> None:
         await self.client.aclose()
+        for closer in self.on_close:
+            await closer()
         self.engine.dispose()
 
 
-async def build_lab(db_file: Path, trusted: KeyPair, attacker: KeyPair) -> Lab:
+async def build_lab(
+    db_file: Path, trusted: KeyPair, attacker: KeyPair, *, postgres: bool = False
+) -> Lab:
     """Create a migrated, seeded lab app. Fails the calling test while it is not built."""
     try:
         from tenantlab.api.app import create_app  # noqa: PLC0415
@@ -267,6 +283,11 @@ async def build_lab(db_file: Path, trusted: KeyPair, attacker: KeyPair) -> Lab:
             pytrace=False,
         )
     url = f"sqlite+pysqlite:///{db_file}"
+    if postgres or os.environ.get(DB_SWITCH) == "postgres":
+        # M5: the very same suite against a real PostgreSQL database (one fresh database per lab)
+        from tests.pgserver import server  # noqa: PLC0415
+
+        url = server().new_database_url()
     settings = Settings(
         database_url=url,
         jwt_issuer=ISSUER,
@@ -276,8 +297,14 @@ async def build_lab(db_file: Path, trusted: KeyPair, attacker: KeyPair) -> Lab:
     upgrade_to_head(url)
     seed_fixtures(url)
     app = create_app(settings)
+    # ASGITransport does not run the app's lifespan, so the app's connection pool would never be
+    # disposed. On SQLite (NullPool) that is invisible; on PostgreSQL every test leaked its pool.
+    lifespan = app.router.lifespan_context(app)
+    await lifespan.__aenter__()
     client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url=BASE_URL)
-    return Lab(client, create_engine(url), TokenMint(trusted, attacker), load_fixtures())
+    lab = Lab(client, create_engine(url), TokenMint(trusted, attacker), load_fixtures())
+    lab.on_close.append(lambda: lifespan.__aexit__(None, None, None))
+    return lab
 
 
 # ----------------------------------------------------------------- assertions ----

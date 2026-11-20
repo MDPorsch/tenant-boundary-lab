@@ -33,6 +33,9 @@ dependencies = [
 lab = [
     "uvicorn>=0.54.0,<1",
 ]
+postgres = [
+    "psycopg[binary]>=3.2.9,<4",
+]
 
 [project.urls]
 Homepage = "https://github.com/MDPorsch/tenant-boundary-lab"
@@ -45,6 +48,7 @@ dev = [
     "hypothesis>=6.170.15,<7",
     "mypy>=2.4.1,<3",
     "pip-audit>=2.10.1,<3",
+    "psycopg[binary]>=3.2.9,<4",
     "pytest>=9.2.0,<10",
     "pytest-asyncio>=1.5.0,<2",
     "pytest-cov>=7.1.0,<8",
@@ -79,6 +83,9 @@ markers = [
     # Needs a running Docker daemon. NOT skipped: without Docker these tests FAIL with a message
     # that names the exact deselect command, so a missing daemon is never mistaken for a pass.
     "docker: needs a Docker daemon (build and run the vulnerable-lab container)",
+    # Needs a Docker daemon AND runs against a real PostgreSQL server (milestone M5). Always combined
+    # with `docker`, so `-m "not docker"` leaves them out; like them, they FAIL, never skip.
+    "postgres: runs against a throwaway PostgreSQL container (concurrency, row locks)",
 ]
 
 # ------------------------------------------------------------------ ruff ----
@@ -96,6 +103,10 @@ ignore = ["PLR2004"]  # magic values are normal in test assertions
 [tool.ruff.lint.per-file-ignores]
 # assert is the point of a test; the harness hand-crafts hostile tokens.
 "tests/**" = ["S101", "S105", "S106", "S311", "S104", "PLR0913"]
+# the PostgreSQL tests carry long SQL strings and prose docstrings that explain each race
+"tests/postgres/**" = ["E501"]
+"tests/support_m5.py" = ["E501"]
+"tests/pgserver.py" = ["E501"]
 # S311: seeded PRNG for statistics. S104: "0.0.0.0" is the hostile INPUT the M3 guards must refuse.
 # Developer tooling: long one-line patches are the point; it runs subprocesses on purpose.
 "tools/**" = ["E501", "PLR0913", "T201"]  # command-line tools print by design

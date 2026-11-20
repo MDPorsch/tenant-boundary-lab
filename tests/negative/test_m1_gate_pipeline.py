@@ -513,7 +513,7 @@ async def test_a_database_failure_fails_closed_with_503_and_leaks_nothing(
 ) -> None:
     lab: Lab = await open_lab()
     path = template.format(**_ids(lab))
-    lab.sql(f"DROP TABLE {table}")  # table comes from the constant list above
+    lab.drop_table(table)  # table comes from the constant list above
     response = await lab.request(method, path, headers=lab.bearer(who), json_body=body)
     assert_problem(response, status=503, code="service.unavailable")
     lowered = response.text.lower()
@@ -525,12 +525,15 @@ async def test_a_database_failure_is_logged_without_statement_or_parameters(
     open_lab: OpenLab, caplog: pytest.LogCaptureFixture
 ) -> None:
     lab: Lab = await open_lab()
-    lab.sql("DROP TABLE memberships")
+    lab.drop_table("memberships")
     with caplog.at_level(logging.INFO, logger="tenantlab"):
         response = await lab.request("GET", _me(lab), headers=lab.bearer("alice"))
     records = [r for r in caplog.records if getattr(r, "event", None) == "db.unavailable"]
     assert len(records) == 1
-    assert records[0].__dict__["error"] == "OperationalError"
+    # a missing table is an OperationalError on SQLite and a ProgrammingError on PostgreSQL
+    assert records[0].__dict__["error"] == (
+        "OperationalError" if lab.engine.dialect.name == "sqlite" else "ProgrammingError"
+    )
     assert records[0].__dict__["request_id"] == response.headers["x-request-id"]
     flat = " ".join(f"{r.getMessage()} {r.__dict__}" for r in caplog.records)
     assert "memberships" not in flat
